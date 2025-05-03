@@ -1,195 +1,155 @@
 <!-- index.html -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1e293b" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
   <title>تطبيق التوصيل الذكي</title>
-  <meta name="theme-color" content="#121212" />
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <!-- Leaflet Routing Machine CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
-  <!-- Animate.css -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
-  <!-- FontAwesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Segoe UI',sans-serif; background:#121212; color:#fff; height:100vh; overflow:hidden; }
-    #map { height:100%; width:100%; position:relative; z-index:0; }
-    .sheet {
-      position: absolute; bottom:0; left:0; right:0; height:50%;
-      background:rgba(30,30,30,0.85); backdrop-filter:blur(10px);
-      border-top-left-radius:20px; border-top-right-radius:20px;
-      padding:15px; display:flex; flex-direction:column;
-      z-index:1000; transition:transform .4s ease;
-      transform:translateY(100%);
+    body { margin:0; font-family:'Segoe UI',sans-serif; background:#0f172a; color:white; }
+    #map { height:100vh; z-index:1; }
+    .bottom-sheet {
+      position:fixed; bottom:0; left:0; right:0; background:#1e293b;
+      border-radius:24px 24px 0 0; padding:16px;
+      box-shadow:0 -4px 16px rgba(0,0,0,0.5);
+      max-height:80vh; overflow:hidden; display:flex; flex-direction:column;
+      transition:transform .3s ease;
     }
-    .sheet.open { transform:translateY(0); }
-    .handle { width:60px; height:5px; background:#555; border-radius:3px; margin:0 auto 10px; cursor:pointer; }
-    .modes { display:flex; justify-content:space-around; margin-bottom:10px; }
-    .modes i { font-size:1.4rem; padding:10px; background:#2a2a2a; border-radius:8px; cursor:pointer; }
-    .modes i.active { background:#007bff; color:#fff; }
-    .input-group { position:relative; margin-bottom:10px; }
-    .input-group i { position:absolute; top:50%; transform:translateY(-50%); left:12px; color:#888; }
-    .input-group input {
-      width:100%; padding:12px 12px 12px 36px; border:none; border-radius:8px;
-      background:#2a2a2a; color:#eee; }
-    #suggestions {
-      position: absolute; top: calc(100% + 5px); left:0; right:0;
-      list-style:none; max-height:120px; overflow-y:auto;
-      background:#2a2a2a; border-radius:8px; z-index:1001; }
-    #suggestions li { padding:8px; cursor:pointer; }
-    #suggestions li:hover { background:#444; }
-    .stops { flex:1; overflow-y:auto; margin-bottom:10px; }
-    .stop-item {
-      display:flex; align-items:center; background:#2a2a2a; padding:10px;
-      border-radius:8px; margin-bottom:8px;
+    .bottom-sheet.collapsed { transform:translateY(70%); }
+    .drag-handle { width:40px; height:5px; background:#4b5563; border-radius:10px; margin:0 auto 10px; cursor:pointer; }
+    input, button { display:block; width:100%; margin-bottom:10px; padding:12px; font-size:1rem; border:none; border-radius:10px; }
+    input { background:#334155; color:white; }
+    button { background:#10b981; color:white; cursor:pointer; }
+
+    .address-list { flex:1; overflow-y:auto; margin-top:10px; }
+    .address-item {
+      background:#1f2937; display:flex; justify-content:space-between;
+      align-items:center; padding:12px; border-radius:12px;
+      margin-bottom:8px; box-shadow:0 2px 8px rgba(0,0,0,0.3);
+      transition:background .2s;
     }
-    .stop-item i { margin-left:10px; color:#007bff; }
-    .stop-item span { flex:1; padding:0 8px; color:#eee; }
-    .stop-item input { flex:1; padding:6px; border-radius:6px; border:none; background:#3a3a3a; color:#eee; }
-    .stop-item button { background:transparent; border:none; color:#dc3545; font-size:1rem; cursor:pointer; }
-    .options { display:flex; justify-content:space-between; align-items:center; }
-    .options button, #addStopBtn {
-      background:#007bff; color:#fff; border:none; border-radius:8px;
-      padding:10px 20px; font-size:1rem; cursor:pointer; }
-    .options .toggle a { color:#007bff; text-decoration:none; }
+    .address-item:hover { background:#374151; }
+    .address-label { flex:1; font-size:0.95rem; color:#e5e7eb; word-break:break-word; }
+    .address-actions button {
+      margin-left:8px; padding:6px 10px;
+      font-size:0.85rem;
+      border-radius:8px;
+      border:none;
+      cursor:pointer;
+      transition:background .2s;
+    }
+    .edit-btn { background:#f59e0b; color:#000; }
+    .edit-btn:hover { background:#d97706; }
+    .delete-btn { background:#ef4444; color:#fff; }
+    .delete-btn:hover { background:#dc2626; }
   </style>
 </head>
+
 <body>
   <div id="map"></div>
-  <div class="sheet animate__animated animate__fadeInUp" id="sheet">
-    <div class="handle" onclick="toggleSheet()"></div>
-    <div class="modes">
-      <i class="fa-solid fa-car active" data-mode="car"></i>
-      <i class="fa-solid fa-bicycle" data-mode="bike"></i>
-      <i class="fa-solid fa-bus" data-mode="bus"></i>
-      <i class="fa-solid fa-walk" data-mode="foot"></i>
-    </div>
-    <div class="input-group">
-      <i class="fa-solid fa-location-dot"></i>
-      <input type="text" id="originInput" placeholder="موقعي" readonly />
-    </div>
-    <div class="input-group">
-      <i class="fa-solid fa-flag-checkered"></i>
-      <input type="text" id="destinationInput" placeholder="أدخل وجهتك" autocomplete="off" />
-      <ul id="suggestions"></ul>
-    </div>
-    <div class="stops" id="stopsList"></div>
-    <button id="addStopBtn">+ إضافة محطة توقف</button>
-    <div class="options">
-      <div class="toggle"><a href="#" onclick="return false;">تجنب بوابات الرسوم ▼</a></div>
-      <button id="startBtn">ابدأ</button>
-    </div>
+  <div class="bottom-sheet collapsed" id="sheet">
+    <div class="drag-handle" id="dragHandle"></div>
+    <button onclick="getLocation()">موقعي</button>
+    <input id="address" placeholder="أدخل العنوان" />
+    <button onclick="addAddress()">إضافة</button>
+    <button onclick="startRouting()">ابدأ</button>
+    <div class="address-list" id="list"></div>
   </div>
 
-  <!-- Scripts -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
   <script>
-    // Map init
-    const map = L.map('map').fitWorld();
+    let map = L.map('map').setView([51.505, -0.09],13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-    map.locate({setView:true, maxZoom:14});
-    let originLatLng;
-    map.on('locationfound',e=>{
-      originLatLng = e.latlng;
-      L.marker(e.latlng).addTo(map).bindPopup('موقعي').openPopup();
-      document.getElementById('originInput').value = 'موقعي';
-    });
 
-    // Sheet toggle
-    function toggleSheet(){ document.getElementById('sheet').classList.toggle('open'); }
-    toggleSheet();
+    let sheet = document.getElementById('sheet');
+    document.getElementById('dragHandle').addEventListener('click',()=>sheet.classList.toggle('collapsed'));
 
-    // Mode selection
-    let travelMode = 'car';
-    document.querySelectorAll('.modes i').forEach(el=>{
-      el.onclick = ()=>{
-        document.querySelector('.modes i.active').classList.remove('active');
-        el.classList.add('active');
-        travelMode = el.dataset.mode;
-      };
-    });
+    let addressInput = document.getElementById('address');
+    let listEl = document.getElementById('list');
+    let addresses = JSON.parse(localStorage.getItem('addresses')||'[]');
+    let markers = [];
+    let control;
+    let currentLocation;
 
-    // Autocomplete for destination
-    const destInput = document.getElementById('destinationInput');
-    const sug = document.getElementById('suggestions'); let places = [];
-    destInput.addEventListener('input', async ()=>{
-      const q=destInput.value; if(q.length<2){sug.innerHTML='';return;}
-      const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`);
-      places = await res.json(); sug.innerHTML='';
-      places.forEach(p=>{
-        const li = document.createElement('li'); li.textContent = p.display_name;
-        li.onclick = ()=>{ selectPlace(p); };
-        sug.appendChild(li);
+    function renderList(){
+      listEl.innerHTML = '';
+      addresses.forEach((addr,i)=>{
+        const div = document.createElement('div'); div.className='address-item';
+        div.innerHTML = `
+          <div class="address-label">${addr}</div>
+          <div class="address-actions">
+            <button class="edit-btn" onclick="editAddress(${i})">تعديل</button>
+            <button class="delete-btn" onclick="deleteAddress(${i})">حذف</button>
+          </div>
+        `;
+        listEl.appendChild(div);
       });
-    });
-    function selectPlace(p){
-      destInput.value = p.display_name;
-      destInput.dataset.lat = p.lat;
-      destInput.dataset.lon = p.lon;
-      sug.innerHTML = '';
     }
 
-    // Stops
-    const stopsList = document.getElementById('stopsList');
-    document.getElementById('addStopBtn').onclick = ()=>{
-      const div = document.createElement('div'); div.className='stop-item animate__animated animate__fadeIn';
-      div.innerHTML = `
-        <i class="fa-solid fa-circle"></i>
-        <input type="text" placeholder="أدخل محطة توقف" />
-        <button onclick="this.parentNode.remove()">×</button>
-      `;
-      stopsList.appendChild(div);
-    };
+    function addAddress(){
+      const addr = addressInput.value.trim(); if(!addr) return;
+      addresses.push(addr);
+      localStorage.setItem('addresses',JSON.stringify(addresses));
+      geocodeAndAdd(addr);
+      addressInput.value=''; renderList();
+    }
 
-    let routingControl;
-    document.getElementById('startBtn').onclick = ()=>{
-      if(!originLatLng) return alert('الموقع غير متاح');
-      const waypoints = [ originLatLng ];
-      // stops
-      document.querySelectorAll('.stop-item input').forEach(inp=>{
-        const q = inp.value;
-        if(q){ waypoints.push(L.latLng(inp.dataset.lat, inp.dataset.lon)); }
-      });
-      // destination
-      if(!destInput.dataset.lat) return alert('حدد وجهتك');
-      waypoints.push( L.latLng(destInput.dataset.lat, destInput.dataset.lon) );
+    function geocodeAndAdd(addr){
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`)
+        .then(res=>res.json()).then(data=>{
+          if(data[0]){
+            const {lat,lon} = data[0];
+            markers.push([+lat,+lon]);
+            L.marker([lat,lon]).addTo(map).bindPopup(addr);
+          }
+        });
+    }
 
-      if(routingControl) map.removeControl(routingControl);
-      routingControl = L.Routing.control({
-        waypoints: waypoints,
-        router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
-        lineOptions: { styles: [{ color: '#007bff', weight: 5 }] },
-        fitSelectedRoutes: true,
-        show: false,
-      }).addTo(map);
-      toggleSheet();
-    };
-
-    // Ensure stop inputs get geocoded
-    stopsList.addEventListener('focusout', async e=>{
-      if(e.target.tagName==='INPUT'){
-        const q=e.target.value;
-        if(q.length<2) return;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);
-        const d = await res.json(); if(d[0]){
-          e.target.dataset.lat = d[0].lat;
-          e.target.dataset.lon = d[0].lon;
-        }
+    function deleteAddress(i){
+      addresses.splice(i,1);
+      localStorage.setItem('addresses',JSON.stringify(addresses));
+      location.reload();
+    }
+    function editAddress(i){
+      const newAddr = prompt('العنوان الجديد:',addresses[i]);
+      if(newAddr){
+        addresses[i]=newAddr;
+        localStorage.setItem('addresses',JSON.stringify(addresses));
+        location.reload();
       }
-    });
-
-    // PWA Service Worker
-    if('serviceWorker' in navigator){
-      const swCode = `self.addEventListener('install', e=> e.waitUntil(caches.open('v1').then(c=>c.addAll(['/']))));
-      self.addEventListener('fetch', e=> e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`;
-      const blob = new Blob([swCode], { type: 'application/javascript' });
-      navigator.serviceWorker.register(URL.createObjectURL(blob));
     }
+
+    function getLocation(){
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos=>{
+          currentLocation=[pos.coords.latitude,pos.coords.longitude];
+          L.marker(currentLocation).addTo(map).bindPopup('موقعك الحالي').openPopup();
+          map.setView(currentLocation,14);
+        });
+      } else alert('المتصفح لا يدعم تحديد الموقع');
+    }
+
+    function startRouting(){
+      if(!currentLocation||markers.length===0) return alert('أضف عنواناً واحداً على الأقل');
+      if(control) map.removeControl(control);
+      const waypoints = [L.latLng(currentLocation), ...markers.map(m=>L.latLng(m))];
+      control=L.Routing.control({
+        waypoints, lineOptions:{styles:[{color:'#38bdf8',weight:6}]}, routeWhileDragging:false
+      }).addTo(map);
+      sheet.classList.add('collapsed');
+    }
+
+    // initialize
+    addresses.forEach(geocodeAndAdd);
+    renderList();
   </script>
 </body>
+
 </html>

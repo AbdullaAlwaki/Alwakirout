@@ -4,205 +4,351 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1e293b" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <title>تطبيق التوصيل الذكي</title>
-
-  <!-- مكتبات Leaflet -->
-  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
+  <!-- Leaflet & Plugins -->
+  <link 
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+    rel="stylesheet" 
+  />
+  <link 
+    rel="stylesheet" 
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" 
+  />
+  <link 
+    rel="stylesheet" 
+    href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" 
+  />
+  <script 
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+  </script>
+  <script 
+    src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js">
+  </script>
+  <script 
+    src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js">
+  </script>
+  <script 
+    src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js">
+  </script>
+  <script 
+    src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js">
+  </script>
+  <script 
+    src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js">
+  </script>
+  <script 
+    src="https://cdn.jsdelivr.net/npm/sweetalert2@11">
+  </script>
 
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:white; }
-    
-    /* شريط المعلومات العلوي */
-    #header {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 60px; background: rgba(0,0,0,0.8);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 20px;
-      z-index: 1000;
+    /* ارتفاع الخريطة */
+    #map { height: 100vh; }
+    /* عناصر الاقتراح (Autocomplete) */
+    .suggestions {
+      position: absolute;
+      background: #334155;
+      width: calc(100% - 2rem);
+      max-height: 200px;
+      overflow-y: auto;
+      border-radius: .5rem;
+      z-index: 1200;
     }
-    #header .info {
-      display: flex; align-items: center;
+    .suggestion-item {
+      padding: .5rem 1rem;
+      cursor: pointer;
     }
-    #header .info img { width: 24px; margin-right: 8px; }
-    #header .info span { color: white; font-size: 16px; }
-    
-    /* الخريطة */
-    #map { height: calc(100vh - 60px); }
-    
-    /* واجهة الاتجاهات */
-    #directions {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      background: #1f2937;
-      padding: 20px;
-      transition: transform 0.3s;
-      transform: translateY(100%);
-    }
-    #directions.open { transform: translateY(0); }
-    
-    /* خيارات النقل */
-    #transport-options {
-      display: flex; gap: 10px;
-    }
-    #transport-options button {
-      flex: 1; padding: 12px 0;
-      text-align: center; color: white;
-      background: #374151; border: none;
-      cursor: pointer; font-size: 16px;
-    }
-    #transport-options button.active {
-      background: #38bdf8;
-    }
-    
-    /* قائمة النقاط */
-    #points-list {
-      margin-top: 20px;
-    }
-    .point-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 0; border-bottom: 1px solid #4b5563;
-    }
-    .point-item i { font-size: 24px; }
-    .point-item span { flex: 1; }
-    
-    /* زر بدء التنقل */
-    #start-btn {
-      margin-top: 20px;
-      padding: 16px 24px;
-      background: #38bdf8; color: white;
-      border: none; cursor: pointer;
-      font-size: 18px; font-weight: bold;
-    }
-    
-    /* مؤشرات المسار */
-    .route-indicator {
-      position: absolute; background: rgba(0,0,0,0.8);
-      padding: 8px 12px; border-radius: 8px;
-      color: white; font-size: 16px;
+    .suggestion-item:hover {
+      background: #475569;
     }
   </style>
 </head>
-<body>
-  <!-- شريط المعلومات العلوي -->
-  <div id="header">
-    <div class="info">
-      <img src="signal-icon.png" alt="Signal" />
-      <span>35%</span>
-      <img src="wifi-icon.png" alt="Wi-Fi" />
-      <span>12:36</span>
-    </div>
-    <div class="info">
-      <img src="car-icon.png" alt="Car" />
-      <span>17° 🌥️</span>
-    </div>
-  </div>
-  
+<body class="bg-slate-900 text-white font-sans">
+
   <!-- الخريطة -->
   <div id="map"></div>
-  
-  <!-- واجهة الاتجاهات -->
-  <div id="directions">
-    <button onclick="toggleDirections()">❌</button>
-    <h2>الاتجاهات</h2>
-    
-    <!-- خيارات النقل -->
-    <div id="transport-options">
-      <button><i class="fas fa-car"></i></button>
-      <button><i class="fas fa-bicycle"></i></button>
-      <button><i class="fas fa-train"></i></button>
-      <button><i class="fas fa-walking"></i></button>
+
+  <!-- زر الفتح/الإغلاق -->
+  <div 
+    id="toggleBtn" 
+    class="fixed bottom-5 right-5 w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg z-50 hover:scale-105 transition-transform"
+  >
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" height="24" viewBox="0 0 24 24"
+    >
+      <path fill="#fff" d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+    </svg>
+  </div>
+
+  <!-- الـ Bottom Sheet -->
+  <div 
+    id="sheet" 
+    class="fixed bottom-[-100%] left-0 right-0 h-3/5 bg-slate-800 backdrop-blur-lg rounded-t-2xl p-5 flex flex-col transition-all z-40"
+  >
+    <h2 class="text-xl mb-4">إدارة التوصيل</h2>
+    <!-- نقطة البداية -->
+    <input 
+      id="originInput" 
+      class="mb-3 p-3 rounded-lg bg-slate-700 w-full" 
+      placeholder="حدد نقطة البداية" 
+      readonly 
+    />
+    <!-- حقل البحث مع الاقتراحات -->
+    <div class="relative w-full mb-3">
+      <input 
+        id="addressInput" 
+        type="text" 
+        class="p-3 rounded-lg bg-slate-700 w-full" 
+        placeholder="ابحث عن عنوان..."
+      />
+      <div id="suggestions" class="suggestions hidden"></div>
     </div>
-    
-    <!-- قائمة النقاط -->
-    <div id="points-list">
-      <div class="point-item">
-        <i class="fas fa-map-marker-alt"></i>
-        <span>موقعي الحالي</span>
-        <i class="fas fa-arrow-up"></i>
-      </div>
-      <div class="point-item">
-        <i class="fas fa-map-marker-alt"></i>
-        <span>الملعب الأولمبي</span>
-        <i class="fas fa-plus"></i>
-      </div>
-    </div>
-    
-    <!-- زر بدء التنقل -->
-    <button id="start-btn">بدء التنقل</button>
+    <!-- أزرار الإضافة والقائمة -->
+    <button 
+      id="addBtn" 
+      class="mb-3 p-3 rounded-lg bg-green-500 font-bold"
+    >
+      ➕ إضافة العنوان
+    </button>
+    <div 
+      id="list" 
+      class="flex-1 overflow-y-auto bg-slate-700 rounded-lg p-2 mb-3"
+    ></div>
+    <button 
+      id="routeBtn" 
+      class="p-3 rounded-lg bg-sky-500 font-bold"
+    >
+      🚗 ابدأ التنقل
+    </button>
+  </div>
+
+  <!-- مؤشر التحميل -->
+  <div 
+    id="loader" 
+    class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 px-4 py-2 rounded-lg hidden z-50"
+  >
+    جارٍ التحميل...
   </div>
 
   <script>
-    // تهيئة الخريطة
-    const map = L.map('map').setView([37.7749, -122.4194], 13);
+    // Utility: debounce 
+    function debounce(fn, delay) {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+      };
+    }
+
+    // State
+    const state = {
+      origin: null,
+      addresses: JSON.parse(localStorage.getItem('addresses')) || []
+    };
+
+    // عناصر DOM
+    const map = L.map('map').setView([24, 45], 6);
+    const originInput = document.getElementById('originInput');
+    const addressInput = document.getElementById('addressInput');
+    const suggestionsEl = document.getElementById('suggestions');
+    const listEl = document.getElementById('list');
+    const loader = document.getElementById('loader');
+    let routingControl;
+
+    // تهيئة الخريطة والطبقات
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap'
     }).addTo(map);
+    const markersCluster = L.markerClusterGroup().addTo(map);
 
-    // تهيئة واجهة الاتجاهات
-    const directions = document.getElementById('directions');
-    const startBtn = document.getElementById('start-btn');
-
-    function toggleDirections() {
-      directions.classList.toggle('open');
+    // Service Worker للتشغيل في وضع الأوفلاين 
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(console.error);
     }
 
-    // تهيئة خيارات النقل
-    const transportOptions = document.querySelectorAll('#transport-options button');
-    transportOptions.forEach((btn, index) => {
-      btn.addEventListener('click', () => {
-        transportOptions.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+    // فتح/إغلاق الـ sheet مع Hammer.js
+    const sheet = document.getElementById('sheet');
+    document.getElementById('toggleBtn').onclick = () => {
+      sheet.classList.toggle('bottom-0');
+    };
+    const hammer = new Hammer(sheet);
+    hammer.get('pan').set({ direction: Hammer.DIRECTION_VERTICAL });
+    hammer.on('panend', ev => {
+      if (ev.deltaY > 100) sheet.classList.remove('bottom-0');
+    });
+
+    // عرض/إخفاء loader
+    function showLoader(){ loader.classList.remove('hidden'); }
+    function hideLoader(){ loader.classList.add('hidden'); }
+
+    // تعيين نقطة البداية
+    function setOrigin(latlng, name) {
+      state.origin = { lat: latlng.lat, lng: latlng.lng, name };
+      localStorage.setItem('origin', JSON.stringify(state.origin));
+      originInput.value = name;
+      if (window.originMarker) map.removeLayer(window.originMarker);
+      window.originMarker = L.marker(latlng, { draggable: true })
+        .addTo(map)
+        .bindPopup(name).openPopup();
+      window.originMarker.on('dragend', e => {
+        setOrigin(e.target.getLatLng(), name);
       });
-    });
+    }
 
-    // تهيئة زر بدء التنقل
-    startBtn.addEventListener('click', () => {
-      alert('بدء التنقل...');
-    });
-
-    // إضافة مسار افتراضي
-    const waypoints = [
-      L.latLng(37.7749, -122.4194),
-      L.latLng(37.78, -122.4)
-    ];
-    const routingControl = L.Routing.control({
-      waypoints: waypoints,
-      lineOptions: {
-        styles: [{color: '#38bdf8', weight: 6}]
-      },
-      createMarker: (i, wp) => {
-        return L.marker(wp.latLng, {
-          icon: L.divIcon({
-            className: 'routing-marker',
-            html: `<div>${i === 0 ? '★' : i}</div>`,
-            iconSize: [30, 30]
-          })
+    // تحميل origin المحفوظ
+    const savedOrigin = JSON.parse(localStorage.getItem('origin'));
+    if (savedOrigin) {
+      setOrigin(L.latLng(savedOrigin.lat, savedOrigin.lng), savedOrigin.name);
+    } else {
+      // محاولة تحديد الموقع الجغرافي
+      navigator.geolocation.getCurrentPosition(pos => {
+        const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
+        geocode(ll, res => {
+          if(res) setOrigin(ll, res.display_name);
         });
-      }
-    }).addTo(map);
+      });
+    }
 
-    // إضافة مؤشرات المسار
-    const routeIndicators = [
-      { lat: 37.775, lng: -122.41, text: '21 د' },
-      { lat: 37.776, lng: -122.4, text: '22 د' }
-    ];
-    routeIndicators.forEach(indicator => {
-      L.popup()
-        .setLatLng([indicator.lat, indicator.lng])
-        .setContent(`<div class="route-indicator">${indicator.text}</div>`)
-        .openOn(map);
-    });
+    // Geocode عام
+    function geocode(query, cb) {
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+        .then(r => r.json())
+        .then(data => cb(data[0] || null))
+        .catch(() => cb(null));
+    }
+
+    // Autocomplete مع debounce
+    addressInput.addEventListener('input', debounce(ev => {
+      const q = ev.target.value.trim();
+      if (!q) return suggestionsEl.classList.add('hidden');
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(list => {
+          suggestionsEl.innerHTML = '';
+          list.forEach(item => {
+            const div = document.createElement('div');
+            div.textContent = item.display_name;
+            div.className = 'suggestion-item';
+            div.onclick = () => {
+              addAddress(item);
+              suggestionsEl.classList.add('hidden');
+              addressInput.value = '';
+            };
+            suggestionsEl.appendChild(div);
+          });
+          suggestionsEl.classList.toggle('hidden', list.length === 0);
+        });
+    }, 300));
+
+    // إضافة عنوان
+    function addAddress(item) {
+      state.addresses.push({
+        name: item.display_name,
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon)
+      });
+      localStorage.setItem('addresses', JSON.stringify(state.addresses));
+      renderAddresses();
+      addMarker(item);
+    }
+
+    // رسم العناوين في القائمة
+    function renderAddresses() {
+      listEl.innerHTML = '';
+      state.addresses.forEach((addr, i) => {
+        const div = document.createElement('div');
+        div.className = 'flex justify-between items-center bg-slate-700 rounded-lg p-2 mb-2';
+        div.innerHTML = `
+          <span>${addr.name}</span>
+          <div class="space-x-2">
+            <button onclick="editAddress(${i})">✏️</button>
+            <button onclick="deleteAddress(${i})">🗑️</button>
+          </div>
+        `;
+        listEl.appendChild(div);
+      });
+      new Sortable(listEl, {
+        animation: 150,
+        onEnd: () => {
+          // إعادة ترتيب الحالة بعد السحب
+          const newOrder = [...listEl.children].map(el => {
+            const txt = el.querySelector('span').textContent;
+            return state.addresses.find(a => a.name === txt);
+          });
+          state.addresses = newOrder;
+          localStorage.setItem('addresses', JSON.stringify(state.addresses));
+        }
+      });
+    }
+
+    window.deleteAddress = i => {
+      Swal.fire({
+        title: 'تأكيد الحذف',
+        text: 'هل تريد حذف هذا العنوان؟',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'نعم',
+        cancelButtonText: 'إلغاء'
+      }).then(res => {
+        if (res.isConfirmed) {
+          state.addresses.splice(i,1);
+          localStorage.setItem('addresses', JSON.stringify(state.addresses));
+          renderAddresses();
+          updateMarkers();
+        }
+      });
+    };
+
+    window.editAddress = i => {
+      const newName = prompt('الاسم الجديد', state.addresses[i].name);
+      if (newName) {
+        state.addresses[i].name = newName;
+        localStorage.setItem('addresses', JSON.stringify(state.addresses));
+        renderAddresses();
+      }
+    };
+
+    // إضافة الماركرات
+    function updateMarkers() {
+      markersCluster.clearLayers();
+      state.addresses.forEach(addMarker);
+    }
+    function addMarker(item) {
+      const m = L.marker([item.lat, item.lng]).bindPopup(item.display_name || item.name);
+      markersCluster.addLayer(m);
+    }
+
+    // رسم العناوين المحفوظة
+    state.addresses.forEach(addMarker);
+    renderAddresses();
+
+    // بدء التوجيه
+    document.getElementById('routeBtn').onclick = () => {
+      if (!state.origin || state.addresses.length===0) {
+        return Swal.fire('خطأ','حدد نقطة البداية وأضف عناوين','error');
+      }
+      if (routingControl) map.removeControl(routingControl);
+      const wps = [
+        L.latLng(state.origin.lat, state.origin.lng),
+        ...state.addresses.map(a => L.latLng(a.lat, a.lng))
+      ];
+      routingControl = L.Routing.control({
+        waypoints: wps,
+        lineOptions: { styles:[{weight:6}] }
+      }).addTo(map);
+      routingControl.on('routesfound', e => {
+        const r = e.routes[0];
+        const dist = (r.summary.totalDistance/1000).toFixed(1);
+        const time = Math.round((r.summary.totalTime%3600)/60);
+        Swal.fire('تفاصيل المسار',`المسافة: ${dist} كم<br>الوقت: ${time} دقائق`,'info');
+      });
+    };
   </script>
 </body>
 </html>

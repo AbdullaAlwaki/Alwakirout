@@ -13,39 +13,45 @@
   <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { margin:0; font-family:'Segoe UI',sans-serif; background:#0f172a; color:white; }
-    #map { height:100vh; z-index:0; }
-    .bottom-sheet {
-      position:fixed; bottom:0; left:0; right:0;
-      background:#1e293b; border-radius:24px 24px 0 0;
-      padding:16px; box-shadow:0 -4px 16px rgba(0,0,0,0.5);
-      max-height:80vh; display:flex; flex-direction:column;
-      z-index:1000; touch-action:none;
-      transform:translateY(60%);
-      transition:transform .2s ease-out;
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:white; }
+    #map { height:100vh; }
+    .sheet-toggle {
+      position:fixed; bottom:20px; right:20px;
+      width:60px; height:60px; background:#10b981; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 4px 12px rgba(0,0,0,0.4); cursor:pointer; z-index:1001;
     }
-    .drag-handle { width:40px; height:5px; background:#4b5563; border-radius:10px; margin:0 auto 10px; touch-action:none; }
-    input, button { display:block; width:100%; margin-bottom:10px; padding:12px; font-size:1rem; border:none; border-radius:10px; }
+    .sheet-toggle i { color:white; font-size:1.5rem; }
+    .bottom-sheet {
+      position:fixed; bottom:0; left:0; right:0; height:55%;
+      background:rgba(30,30,30,0.95); backdrop-filter:blur(8px);
+      border-top-left-radius:20px; border-top-right-radius:20px;
+      padding:20px; display:none; flex-direction:column;
+      z-index:1000; overflow:hidden;
+    }
+    .bottom-sheet.open { display:flex; }
+    .bottom-sheet h2 { text-align:center; margin-bottom:10px; }
+    input, button { width:100%; margin-bottom:12px; padding:14px; border:none; border-radius:10px; font-size:1rem; }
     input { background:#334155; color:white; }
     button { background:#10b981; color:white; cursor:pointer; }
-    .address-list { flex:1; overflow-y:auto; margin-top:10px; }
-    .address-item { background:#1f2937; display:flex; justify-content:space-between; align-items:center; padding:12px; border-radius:12px; margin-bottom:8px; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
-    .address-label { flex:1; font-size:0.95rem; color:#e5e7eb; word-break:break-word; cursor:grab; }
-    .address-actions button { margin-left:8px; padding:6px 10px; font-size:0.85rem; border-radius:8px; border:none; cursor:pointer; }
+    .list { flex:1; overflow-y:auto; margin-bottom:12px; }
+    .list-item { background:#1f2937; padding:12px; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+    .list-item span { flex:1; word-break:break-word; }
+    .list-item button { margin-left:8px; padding:6px 10px; font-size:0.9rem; border:none; border-radius:8px; cursor:pointer; }
     .edit-btn { background:#f59e0b; color:#000; }
     .delete-btn { background:#ef4444; color:#fff; }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div class="sheet-toggle" id="toggleBtn"><i>&#9776;</i></div>
   <div class="bottom-sheet" id="sheet">
-    <div class="drag-handle" id="dragHandle"></div>
-    <button id="locBtn">موقعي</button>
-    <button id="editLocBtn">تعديل موقعي</button>
+    <h2>إدارة التوصيل</h2>
+    <button id="locBtn">📍 موقعي</button>
     <input id="address" placeholder="أدخل عنوان التوصيل" />
-    <button id="addBtn">إضافة</button>
-    <button id="routeBtn">ابدأ</button>
-    <div class="address-list" id="list"></div>
+    <button id="addBtn">➕ إضافة</button>
+    <div class="list" id="list"></div>
+    <button id="routeBtn">🚗 ابدأ التنقل</button>
   </div>
 
   <script>
@@ -53,107 +59,71 @@
     const map = L.map('map').setView([0,0],2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
-    // Bottom sheet drag
+    // UI elements
     const sheet = document.getElementById('sheet');
-    const handle = document.getElementById('dragHandle');
-    let startY, currentTranslate = 0;
-    handle.addEventListener('pointerdown', e => {
-      startY = e.clientY;
-      sheet.style.transition = 'none';
-      window.addEventListener('pointermove', onDrag);
-      window.addEventListener('pointerup', endDrag);
-    });
-    function onDrag(e) {
-      const dy = e.clientY - startY;
-      const percent = Math.min(Math.max((60 + (dy/window.innerHeight*100)), 0), 60);
-      currentTranslate = percent;
-      sheet.style.transform = `translateY(${percent}%)`;
-    }
-    function endDrag() {
-      sheet.style.transition = 'transform .2s ease-out';
-      sheet.style.transform = `translateY(${currentTranslate<30?0:60}%)`;
-      window.removeEventListener('pointermove', onDrag);
-      window.removeEventListener('pointerup', endDrag);
-    }
+    const toggleBtn = document.getElementById('toggleBtn');
+    toggleBtn.onclick = ()=> sheet.classList.toggle('open');
 
-    // Controls
     const locBtn = document.getElementById('locBtn');
-    const editLocBtn = document.getElementById('editLocBtn');
     const addBtn = document.getElementById('addBtn');
     const routeBtn = document.getElementById('routeBtn');
     const addressInput = document.getElementById('address');
     const listEl = document.getElementById('list');
 
-    let myMarker, myLoc;
+    // Data
+    let myLoc, myMarker;
     let addresses = JSON.parse(localStorage.getItem('addresses')||'[]');
     let markers = [];
     let routingControl;
 
-    // Geolocation
-    function requestLocation() {
-      navigator.geolocation.getCurrentPosition(pos => {
-        myLoc = [pos.coords.latitude, pos.coords.longitude];
-        if (myMarker) map.removeLayer(myMarker);
-        myMarker = L.marker(myLoc,{draggable:true}).addTo(map).bindPopup('موقعي').openPopup();
-        myMarker.on('dragend', e=> { const p=e.target.getLatLng(); myLoc=[p.lat,p.lng]; });
+    // Request location
+    locBtn.onclick = () => {
+      if (!navigator.geolocation) return alert('المتصفح لا يدعم تحديد الموقع');
+      navigator.geolocation.getCurrentPosition(p=>{
+        myLoc=[p.coords.latitude,p.coords.longitude];
+        if(myMarker) map.removeLayer(myMarker);
+        myMarker=L.marker(myLoc,{draggable:true}).addTo(map).bindPopup('موقعي').openPopup();
+        myMarker.on('dragend',e=>{const p=e.target.getLatLng(); myLoc=[p.lat,p.lng];});
         map.setView(myLoc,14);
-      }, err => alert('يرجى تفعيل تحديد الموقع')); 
-    }
-    locBtn.onclick = requestLocation;
-    editLocBtn.onclick = requestLocation;
+      },e=>alert('يرجى السماح بالوصول للموقع'));
+    };
 
     // Render list
-    function renderList() {
+    function renderList(){
       listEl.innerHTML='';
       addresses.forEach((addr,i)=>{
-        const div = document.createElement('div'); div.className='address-item'; div.draggable=true; div.dataset.index=i;
-        div.innerHTML = `<div class="address-label">${addr}</div><div><button class="edit-btn" onclick="editAddress(${i})">تعديل</button><button class="delete-btn" onclick="deleteAddress(${i})">حذف</button></div>`;
+        const div=document.createElement('div'); div.className='list-item';
+        div.innerHTML=`<span>${addr}</span><div><button class="edit-btn" onclick="edit(${i})">✏️</button><button class="delete-btn" onclick="del(${i})">🗑️</button></div>`;
         listEl.appendChild(div);
       });
-      addDnD();
     }
 
-    // Drag-n-drop list
-    function addDnD() {
-      document.querySelectorAll('.address-item').forEach(item=>{
-        item.addEventListener('dragstart',dragStart);
-        item.addEventListener('dragover',dragOver);
-        item.addEventListener('drop',dropItem);
-        item.addEventListener('dragend',dragEnd);
-      });
-    }
-    let dragEl;
-    function dragStart(e){ dragEl=this; setTimeout(()=>this.style.opacity='0.5',0); }
-    function dragOver(e){ e.preventDefault(); this.classList.add('drag-over'); }
-    function dropItem(){ this.classList.remove('drag-over'); const from=+dragEl.dataset.index, to=+this.dataset.index; addresses.splice(to,0,addresses.splice(from,1)[0]); localStorage.setItem('addresses',JSON.stringify(addresses)); renderList(); }
-    function dragEnd(){ this.style.opacity='1'; }
+    window.del=i=>{addresses.splice(i,1);update();};
+    window.edit=i=>{const na=prompt('العنوان الجديد:',addresses[i]);if(na){addresses[i]=na;update();}};
+    function update(){localStorage.setItem('addresses',JSON.stringify(addresses));renderList();}
 
-    // Geocode
-    function geocode(addr, cb){ fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`)
-      .then(r=>r.json()).then(data=>data[0]&&cb(data[0])); }
+    // Geocode and add marker
+    function geocode(addr,cb){fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`)
+      .then(r=>r.json()).then(data=>data[0]&&cb(data[0]));}
 
     // Add address
-    addBtn.onclick = ()=>{
+    addBtn.onclick=()=>{
       const a=addressInput.value.trim(); if(!a) return;
-      addresses.push(a); localStorage.setItem('addresses',JSON.stringify(addresses));
-      geocode(a,d=>{ markers.push([+d.lat,+d.lon]); L.marker([d.lat,d.lon]).addTo(map).bindPopup(a); });
-      addressInput.value=''; renderList();
+      addresses.push(a); update();
+      geocode(a,d=>{markers.push([+d.lat,+d.lon]);L.marker([d.lat,d.lon]).addTo(map).bindPopup(a);} );
+      addressInput.value='';
     };
 
-    window.deleteAddress = i=>{ addresses.splice(i,1); localStorage.setItem('addresses',JSON.stringify(addresses)); renderList(); };
-    window.editAddress = i=>{ const na=prompt('العنوان الجديد:',addresses[i]); if(na){addresses[i]=na; localStorage.setItem('addresses',JSON.stringify(addresses)); renderList();}};
-
-    // Routing
-    routeBtn.onclick = ()=>{
+    // Start routing
+    routeBtn.onclick=()=>{
       if(!myLoc||markers.length===0) return alert('حدد موقعك وأضف عنواناً');
       if(routingControl) map.removeControl(routingControl);
-      const wpts = [L.latLng(myLoc), ...markers.map(m=>L.latLng(m))];
-      routingControl = L.Routing.control({ waypoints:wpts, lineOptions:{styles:[{color:'#38bdf8',weight:6}]}, routeWhileDragging:false }).addTo(map);
-      sheet.style.transform='translateY(60%)';
+      const wpts=[L.latLng(myLoc), ...markers.map(m=>L.latLng(m))];
+      routingControl=L.Routing.control({waypoints:wpts,lineOptions:{styles:[{color:'#38bdf8',weight:6}]},routeWhileDragging:false}).addTo(map);
     };
 
-    // Init
-    addresses.forEach(a=> geocode(a,d=>{ markers.push([+d.lat,+d.lon]); L.marker([d.lat,d.lon]).addTo(map).bindPopup(a);}));
+    // Init saved
+    addresses.forEach(a=>geocode(a,d=>{markers.push([+d.lat,+d.lon]);L.marker([d.lat,d.lon]).addTo(map).bindPopup(a);}));
     renderList();
   </script>
 </body>

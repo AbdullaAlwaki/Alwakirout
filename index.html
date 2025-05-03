@@ -14,128 +14,146 @@
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { margin:0; font-family:'Segoe UI',sans-serif; background:#0f172a; color:white; }
-    #map { height:100vh; z-index:0; position:relative; }
+    #map { height:100vh; z-index:0; }
     .bottom-sheet {
       position:fixed; bottom:0; left:0; right:0;
-      background:#1e293b; border-radius:24px 24px 0 0; padding:16px;
-      box-shadow:0 -4px 16px rgba(0,0,0,0.5);
-      max-height:80vh; overflow:hidden;
-      display:flex; flex-direction:column;
-      transition:transform .3s ease;
-      z-index:1000;
+      background:#1e293b; border-radius:24px 24px 0 0;
+      padding:16px; box-shadow:0 -4px 16px rgba(0,0,0,0.5);
+      max-height:80vh; display:flex; flex-direction:column;
+      z-index:1000; touch-action:none;
+      transform:translateY(60%);
+      transition:transform .2s ease-out;
     }
-    .bottom-sheet.collapsed { transform:translateY(65%); }
-    .drag-handle { width:40px; height:5px; background:#4b5563; border-radius:10px; margin:0 auto 10px; cursor:pointer; }
+    .drag-handle { width:40px; height:5px; background:#4b5563; border-radius:10px; margin:0 auto 10px; touch-action:none; }
     input, button { display:block; width:100%; margin-bottom:10px; padding:12px; font-size:1rem; border:none; border-radius:10px; }
     input { background:#334155; color:white; }
     button { background:#10b981; color:white; cursor:pointer; }
     .address-list { flex:1; overflow-y:auto; margin-top:10px; }
-    .address-item { background:#1f2937; display:flex; justify-content:space-between; align-items:center; padding:12px; border-radius:12px; margin-bottom:8px; box-shadow:0 2px 8px rgba(0,0,0,0.3); transition:background .2s; }
-    .address-item:hover { background:#374151; }
+    .address-item { background:#1f2937; display:flex; justify-content:space-between; align-items:center; padding:12px; border-radius:12px; margin-bottom:8px; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
     .address-label { flex:1; font-size:0.95rem; color:#e5e7eb; word-break:break-word; cursor:grab; }
-    .address-actions button { margin-left:8px; padding:6px 10px; font-size:0.85rem; border-radius:8px; border:none; cursor:pointer; transition:background .2s; }
+    .address-actions button { margin-left:8px; padding:6px 10px; font-size:0.85rem; border-radius:8px; border:none; cursor:pointer; }
     .edit-btn { background:#f59e0b; color:#000; }
-    .edit-btn:hover { background:#d97706; }
     .delete-btn { background:#ef4444; color:#fff; }
-    .delete-btn:hover { background:#dc2626; }
-    .drag-over { border: 2px dashed #10b981 !important; }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <div class="bottom-sheet" id="sheet">
     <div class="drag-handle" id="dragHandle"></div>
-    <button onclick="getLocation()">موقعي</button>
-    <button onclick="editMyLocation()">تعديل موقعي</button>
+    <button id="locBtn">موقعي</button>
+    <button id="editLocBtn">تعديل موقعي</button>
     <input id="address" placeholder="أدخل عنوان التوصيل" />
-    <button onclick="addAddress()">إضافة</button>
-    <button onclick="startRouting()">ابدأ</button>
+    <button id="addBtn">إضافة</button>
+    <button id="routeBtn">ابدأ</button>
     <div class="address-list" id="list"></div>
   </div>
 
   <script>
-    // Map setup
-    let map = L.map('map').setView([51.505, -0.09],13);
+    // Map init
+    const map = L.map('map').setView([0,0],2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
-    // Sheet drag toggle
-    let sheet = document.getElementById('sheet');
-    document.getElementById('dragHandle').addEventListener('click', ()=> sheet.classList.toggle('collapsed'));
+    // Bottom sheet drag
+    const sheet = document.getElementById('sheet');
+    const handle = document.getElementById('dragHandle');
+    let startY, currentTranslate = 0;
+    handle.addEventListener('pointerdown', e => {
+      startY = e.clientY;
+      sheet.style.transition = 'none';
+      window.addEventListener('pointermove', onDrag);
+      window.addEventListener('pointerup', endDrag);
+    });
+    function onDrag(e) {
+      const dy = e.clientY - startY;
+      const percent = Math.min(Math.max((60 + (dy/window.innerHeight*100)), 0), 60);
+      currentTranslate = percent;
+      sheet.style.transform = `translateY(${percent}%)`;
+    }
+    function endDrag() {
+      sheet.style.transition = 'transform .2s ease-out';
+      sheet.style.transform = `translateY(${currentTranslate<30?0:60}%)`;
+      window.removeEventListener('pointermove', onDrag);
+      window.removeEventListener('pointerup', endDrag);
+    }
 
-    // Data
-    let addressInput = document.getElementById('address');
-    let listEl = document.getElementById('list');
+    // Controls
+    const locBtn = document.getElementById('locBtn');
+    const editLocBtn = document.getElementById('editLocBtn');
+    const addBtn = document.getElementById('addBtn');
+    const routeBtn = document.getElementById('routeBtn');
+    const addressInput = document.getElementById('address');
+    const listEl = document.getElementById('list');
+
+    let myMarker, myLoc;
     let addresses = JSON.parse(localStorage.getItem('addresses')||'[]');
     let markers = [];
     let routingControl;
-    let myMarker;
-    let myLoc;
 
-    // Render saved addresses
-    function renderList(){
-      listEl.innerHTML = '';
+    // Geolocation
+    function requestLocation() {
+      navigator.geolocation.getCurrentPosition(pos => {
+        myLoc = [pos.coords.latitude, pos.coords.longitude];
+        if (myMarker) map.removeLayer(myMarker);
+        myMarker = L.marker(myLoc,{draggable:true}).addTo(map).bindPopup('موقعي').openPopup();
+        myMarker.on('dragend', e=> { const p=e.target.getLatLng(); myLoc=[p.lat,p.lng]; });
+        map.setView(myLoc,14);
+      }, err => alert('يرجى تفعيل تحديد الموقع')); 
+    }
+    locBtn.onclick = requestLocation;
+    editLocBtn.onclick = requestLocation;
+
+    // Render list
+    function renderList() {
+      listEl.innerHTML='';
       addresses.forEach((addr,i)=>{
         const div = document.createElement('div'); div.className='address-item'; div.draggable=true; div.dataset.index=i;
-        div.innerHTML = `<div class="address-label">${addr}</div>
-          <div class="address-actions">
-            <button class="edit-btn" onclick="editAddress(${i})">تعديل</button>
-            <button class="delete-btn" onclick="deleteAddress(${i})">حذف</button>
-          </div>`;
+        div.innerHTML = `<div class="address-label">${addr}</div><div><button class="edit-btn" onclick="editAddress(${i})">تعديل</button><button class="delete-btn" onclick="deleteAddress(${i})">حذف</button></div>`;
         listEl.appendChild(div);
-      }); addDrag();
+      });
+      addDnD();
     }
 
-    // Drag and drop
-    function addDrag(){
+    // Drag-n-drop list
+    function addDnD() {
       document.querySelectorAll('.address-item').forEach(item=>{
-        item.addEventListener('dragstart', dragStart);
-        item.addEventListener('dragover', dragOver);
-        item.addEventListener('dragleave', dragLeave);
-        item.addEventListener('drop', dropItem);
-        item.addEventListener('dragend', dragEnd);
+        item.addEventListener('dragstart',dragStart);
+        item.addEventListener('dragover',dragOver);
+        item.addEventListener('drop',dropItem);
+        item.addEventListener('dragend',dragEnd);
       });
     }
-    let dragged;
-    function dragStart(){ dragged=this; setTimeout(()=> this.style.opacity='0.5',0);}    
+    let dragEl;
+    function dragStart(e){ dragEl=this; setTimeout(()=>this.style.opacity='0.5',0); }
     function dragOver(e){ e.preventDefault(); this.classList.add('drag-over'); }
-    function dragLeave(){ this.classList.remove('drag-over'); }
-    function dropItem(){ this.classList.remove('drag-over');
-      const from=+dragged.dataset.index, to=+this.dataset.index;
-      addresses.splice(to,0, addresses.splice(from,1)[0]);
-      localStorage.setItem('addresses', JSON.stringify(addresses)); renderList(); }
+    function dropItem(){ this.classList.remove('drag-over'); const from=+dragEl.dataset.index, to=+this.dataset.index; addresses.splice(to,0,addresses.splice(from,1)[0]); localStorage.setItem('addresses',JSON.stringify(addresses)); renderList(); }
     function dragEnd(){ this.style.opacity='1'; }
 
-    // Geocode and add marker
+    // Geocode
     function geocode(addr, cb){ fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`)
-        .then(r=>r.json()).then(data=> data[0] && cb(data[0])); }
+      .then(r=>r.json()).then(data=>data[0]&&cb(data[0])); }
 
-    function addAddress(){ const addr=addressInput.value.trim(); if(!addr) return;
-      addresses.push(addr); localStorage.setItem('addresses',JSON.stringify(addresses));
-      geocode(addr, d=>{ markers.push([+d.lat,+d.lon]); L.marker([d.lat,d.lon]).addTo(map).bindPopup(addr); });
-      addressInput.value=''; renderList(); }
+    // Add address
+    addBtn.onclick = ()=>{
+      const a=addressInput.value.trim(); if(!a) return;
+      addresses.push(a); localStorage.setItem('addresses',JSON.stringify(addresses));
+      geocode(a,d=>{ markers.push([+d.lat,+d.lon]); L.marker([d.lat,d.lon]).addTo(map).bindPopup(a); });
+      addressInput.value=''; renderList();
+    };
 
-    function deleteAddress(i){ addresses.splice(i,1); localStorage.setItem('addresses',JSON.stringify(addresses)); renderList(); }
-    function editAddress(i){ const newA=prompt('العنوان الجديد:',addresses[i]); if(newA){ addresses[i]=newA; localStorage.setItem('addresses',JSON.stringify(addresses)); renderList(); }}
-
-    // My location
-    function getLocation(){ if(navigator.geolocation){ navigator.geolocation.getCurrentPosition(pos=>{
-        myLoc=[pos.coords.latitude, pos.coords.longitude];
-        if(myMarker) map.removeLayer(myMarker);
-        myMarker=L.marker(myLoc,{draggable:true}).addTo(map).bindPopup('موقعي').openPopup();
-        myMarker.on('dragend',e=>{const p=e.target.getLatLng(); myLoc=[p.lat,p.lng];});
-        map.setView(myLoc,14);
-      }); } else alert('المتصفح لا يدعم تحديد الموقع'); }
-    function editMyLocation(){ getLocation(); }
+    window.deleteAddress = i=>{ addresses.splice(i,1); localStorage.setItem('addresses',JSON.stringify(addresses)); renderList(); };
+    window.editAddress = i=>{ const na=prompt('العنوان الجديد:',addresses[i]); if(na){addresses[i]=na; localStorage.setItem('addresses',JSON.stringify(addresses)); renderList();}};
 
     // Routing
-    function startRouting(){ if(!myLoc || markers.length===0) return alert('حدد موقعي وأضف على الأقل عنواناً');
+    routeBtn.onclick = ()=>{
+      if(!myLoc||markers.length===0) return alert('حدد موقعك وأضف عنواناً');
       if(routingControl) map.removeControl(routingControl);
-      const waypoints=[ L.latLng(myLoc), ...markers.map(m=>L.latLng(m)) ];
-      routingControl=L.Routing.control({ waypoints, lineOptions:{styles:[{color:'#38bdf8',weight:6}]}, routeWhileDragging:false }).addTo(map);
-      sheet.classList.add('collapsed'); }
+      const wpts = [L.latLng(myLoc), ...markers.map(m=>L.latLng(m))];
+      routingControl = L.Routing.control({ waypoints:wpts, lineOptions:{styles:[{color:'#38bdf8',weight:6}]}, routeWhileDragging:false }).addTo(map);
+      sheet.style.transform='translateY(60%)';
+    };
 
     // Init
-    addresses.forEach(a=> geocode(a, d=>{ markers.push([+d.lat,+d.lon]); L.marker([d.lat,d.lon]).addTo(map).bindPopup(a);}));
+    addresses.forEach(a=> geocode(a,d=>{ markers.push([+d.lat,+d.lon]); L.marker([d.lat,d.lon]).addTo(map).bindPopup(a);}));
     renderList();
   </script>
 </body>

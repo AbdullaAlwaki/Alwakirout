@@ -1,163 +1,71 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <title>خريطة مجانية - بدون أي توكين</title>
-  <!-- Leaflet CSS مجاناً من CDN -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-    integrity="sha256-uQ5XH1YyMnx61o4iR+IaF+Ehc2k46kYp1m0G6o4xr14="
-    crossorigin=""
-  />
-  <!-- Geocoder CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"
-  />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1e293b">
+  <title>Alwaki Route</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
   <style>
-    html, body { margin:0; padding:0; height:100%; font-family:sans-serif; }
-    #map { position:absolute; top:0; bottom:0; right:0; left:250px; }
-    #sidebar {
-      position: absolute; top:0; bottom:0; left:0; width:250px;
-      background:#fafafa; border-left:1px solid #ccc;
-      overflow:auto; padding:10px; box-sizing:border-box;
-    }
-    #sidebar h2 { margin-top:0; font-size:1.2em; }
-    ul { list-style:none; padding:0; }
-    li { margin:5px 0; cursor:pointer; color:#007aff; }
-    li:hover { text-decoration:underline; }
-    .leaflet-control-geocoder-icon { background-image: none; }
-    .locate-btn {
-      background: white; border:1px solid #ccc; border-radius:4px;
-      padding:6px; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.3);
-    }
-    .locate-btn:hover { background:#eee; }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#fff;overflow:hidden}
+    #map{position:absolute;top:0;left:0;right:0;bottom:0}
+    .sheet-toggle{position:fixed;bottom:20px;right:20px;width:60px;height:60px;background:#10b981;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:1001}
+    .sheet-toggle i{color:#fff;font-size:1.5rem}
+    .bottom-sheet{position:fixed;left:0;right:0;height:60%;background:rgba(30,30,30,0.95);backdrop-filter:blur(8px);border-top-left-radius:20px;border-top-right-radius:20px;padding:20px;display:none;flex-direction:column;z-index:1000;overflow:hidden;touch-action:none}
+    .bottom-sheet.open{display:flex}
+    .drag-handle{width:50px;height:5px;background:#4b5563;border-radius:3px;margin:0 auto 10px;cursor:grab}
+    h2{text-align:center;margin-bottom:10px}
+    .input{width:100%;margin-bottom:12px;padding:14px;border:none;border-radius:10px;font-size:1rem;background:#334155;color:#fff}
+    button{width:100%;margin-bottom:12px;padding:14px;border:none;border-radius:10px;font-size:1rem;background:#10b981;color:#fff;cursor:pointer}
+    .list{flex:1;overflow-y:auto;margin-bottom:12px}
+    .list-item{background:#1f2937;padding:12px;border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+    .list-item span{flex:1;word-break:break-word}
+    .list-item button{margin-left:8px;padding:6px 10px;font-size:0.9rem;border:none;border-radius:8px;cursor:pointer}
+    .edit-btn{background:#f59e0b;color:#000}
+    .delete-btn{background:#ef4444;color:#fff}
   </style>
 </head>
 <body>
-
-<div id="sidebar">
-  <h2>🔍 بحث</h2>
-  <div id="geocoder"></div>
-
-  <h2>⭐ مفضلات</h2>
-  <ul id="favorites"></ul>
-
-  <h2>🕑 البحث الأخير</h2>
-  <ul id="recents"></ul>
-</div>
-<div id="map"></div>
-
-<!-- Leaflet JS -->
-<script
-  src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
-  integrity="sha256-p3x0VCj0uUHeNIg1E0t59gRSlBMOZc8DRFQ5w5TttyM="
-  crossorigin=""
-></script>
-<!-- Geocoder plugin -->
-<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-
-<script>
-  // تهيئة الخريطة
-  var map = L.map('map').setView([31.7917, 35.2170], 6); // مركز أولي: الأردن
-
-  // طبقة OpenStreetMap المجانية
-  var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
-  // زر تحديد الموقع الحالي
-  var locateBtn = L.control({position:'topright'});
-  locateBtn.onAdd = function(){
-    var div = L.DomUtil.create('div','locate-btn');
-    div.title = 'موقعي';
-    div.innerHTML = '📍';
-    div.onclick = function(){
-      map.locate({setView:true, maxZoom:16});
-    };
-    return div;
-  };
-  locateBtn.addTo(map);
-  map.on('locationfound', function(e){
-    L.circle(e.latlng, {radius:e.accuracy/2, color:'#136AEC'}).addTo(map);
-    L.marker(e.latlng).addTo(map);
-  });
-
-  // إضافة صندوق البحث (Nominatim مجاني)
-  var geocoder = L.Control.geocoder({
-    defaultMarkGeocode: false,
-    placeholder: 'ابحث عن مكان...'
-  })
-    .on('markgeocode', function(e){
-      var c = e.geocode.center;
-      map.setView(c, 15);
-
-      // إضافة علامة مع خيارات
-      var marker = L.marker(c).addTo(map)
-        .bindPopup(
-          '<b>'+e.geocode.name+'</b><br/>' +
-          '<button onclick="saveFavorite('+c.lat+','+c.lng+',\''+e.geocode.name.replace(/'/g,"\\'")+'\')">★ مفضلة</button> ' +
-          '<button onclick="getDirections('+c.lat+','+c.lng+')">🗺 اتجاه</button>'
-        )
-        .openPopup();
-
-      addRecent(e.geocode.name, c);
-    })
-    .addTo(map);
-
-  // نقل صندوق البحث إلى الشريط الجانبي
-  document.getElementById('geocoder')
-    .appendChild(geocoder.getContainer());
-
-  // مفاتيح التخزين
-  var recentsKey = 'map_recents';
-  var favsKey    = 'map_favorites';
-
-  // دوال التخزين والرسم
-  function loadList(key){
-    return JSON.parse(localStorage.getItem(key) || '[]');
-  }
-  function saveList(key, arr){
-    localStorage.setItem(key, JSON.stringify(arr));
-  }
-  function renderList(id, key, onClick){
-    var ul = document.getElementById(id);
-    ul.innerHTML = '';
-    loadList(key).forEach(function(item){
-      var li = document.createElement('li');
-      li.textContent = item.name;
-      li.onclick = function(){ onClick(item); };
-      ul.appendChild(li);
-    });
-  }
-
-  function addRecent(name, center){
-    var rec = loadList(recentsKey)
-      .filter(r=>r.name!==name);
-    rec.unshift({name:name, lat:center.lat, lng:center.lng});
-    if(rec.length>5) rec.pop();
-    saveList(recentsKey, rec);
-    renderList('recents', recentsKey, item=>map.setView([item.lat,item.lng],15));
-  }
-  function saveFavorite(lat, lng, name){
-    var fav = loadList(favsKey);
-    if(!fav.find(f=>f.name===name)){
-      fav.push({name:name, lat:lat, lng:lng});
-      saveList(favsKey, fav);
-      renderList('favorites', favsKey, item=>map.setView([item.lat,item.lng],15));
-    }
-  }
-  function getDirections(lat, lng){
-    // رابط اتجاهات Google مجاني ولا يحتاج API توكين للفتح في المتصفح
-    var url = 'https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng;
-    window.open(url, '_blank');
-  }
-
-  // عرض القوائم عند التحميل
-  renderList('recents', recentsKey, item=>map.setView([item.lat,item.lng],15));
-  renderList('favorites', favsKey, item=>map.setView([item.lat,item.lng],15));
-
-</script>
+  <div id="map"></div>
+  <div class="sheet-toggle" id="toggleBtn"><i>&#9776;</i></div>
+  <div class="bottom-sheet" id="sheet">
+    <div class="drag-handle" id="handle"></div>
+    <h2>Alwaki Route</h2>
+    <input id="originInput" class="input" readonly placeholder="تحميل الموقع...">
+    <button id="editOriginBtn">✏️ تعديل نقطة البداية</button>
+    <input id="addressInput" class="input" placeholder="أدخل عنوان التوصيل">
+    <button id="addBtn">➕ إضافة</button>
+    <div class="list" id="list"></div>
+    <button id="routeBtn">🚗 ابدأ التنقل</button>
+  </div>
+  <script>
+    const map=L.map('map').setView([0,0],2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    const sheet=document.getElementById('sheet'),toggleBtn=document.getElementById('toggleBtn');
+    toggleBtn.onclick=()=>sheet.classList.toggle('open');
+    const handle=document.getElementById('handle');let startY,origPerc=40;
+    handle.addEventListener('pointerdown',e=>{startY=e.clientY;sheet.style.transition='none';window.addEventListener('pointermove',onDrag);window.addEventListener('pointerup',endDrag);});
+    function onDrag(e){let dy=(e.clientY-startY)/window.innerHeight*100;let y=Math.min(Math.max(origPerc+dy,0),origPerc);sheet.style.transform=`translateY(${y}%)`}    
+    function endDrag(e){let dy=(e.clientY-startY)/window.innerHeight*100;origPerc=Math.min(Math.max(origPerc+dy,0),origPerc);sheet.style.transition='transform .2s';sheet.style.transform=`translateY(${origPerc}%)`;window.removeEventListener('pointermove',onDrag);window.removeEventListener('pointerup',endDrag);}
+    const originInput=document.getElementById('originInput'),editOriginBtn=document.getElementById('editOriginBtn');
+    const addressInput=document.getElementById('addressInput'),addBtn=document.getElementById('addBtn'),routeBtn=document.getElementById('routeBtn'),listEl=document.getElementById('list');
+    let myLoc,myMarker,routingControl;let addresses=JSON.parse(localStorage.getItem('addresses')||'[]'),markers=[];
+    if(navigator.geolocation){navigator.geolocation.getCurrentPosition(p=>{myLoc=[p.coords.latitude,p.coords.longitude];fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${myLoc[0]}&lon=${myLoc[1]}&zoom=3`).then(r=>r.json()).then(d=>{if(d.boundingbox){const bb=d.boundingbox.map(parseFloat);map.fitBounds([[bb[0],bb[2]],[bb[1],bb[3]]]);}});setOrigin(myLoc,'موقعي الحالي');},e=>{originInput.value='فشل تحديد الموقع';});}else originInput.value='المتصفح لا يدعم الموقع';
+    function setOrigin(loc,label){originInput.value=label;if(myMarker)map.removeLayer(myMarker);myMarker=L.marker(loc,{draggable:true}).addTo(map).bindPopup(label).openPopup();myMarker.on('dragend',e=>{const p=e.target.getLatLng();myLoc=[p.lat,p.lng];});}
+    editOriginBtn.onclick=()=>{const na=prompt('العنوان الجديد للبداية:',originInput.value);if(na)geocode(na,d=>setOrigin([+d.lat,+d.lon],na));};
+    function geocode(addr,cb){fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`).then(r=>r.json()).then(a=>a[0]&&cb(a[0]));}
+    function renderList(){listEl.innerHTML='';addresses.forEach((a,i)=>{const div=document.createElement('div');div.className='list-item';div.innerHTML=`<span>${a}</span><div><button class=\"edit-btn\" onclick=\"edit(${i})\">✏️</button><button class=\"delete-btn\" onclick=\"del(${i})\">🗑️</button></div>`;listEl.appendChild(div);});}
+    window.del=i=>{addresses.splice(i,1);update();};window.edit=i=>{const na=prompt('العنوان الجديد:',addresses[i]);if(na){addresses[i]=na;update();}};
+    function update(){localStorage.setItem('addresses',JSON.stringify(addresses));renderList();}
+    addBtn.onclick=()=>{const a=addressInput.value.trim();if(!a)return;addresses.push(a);update();geocode(a,d=>{markers.push([+d.lat,+d.lon]);L.marker([+d.lat,+d.lon]).addTo(map).bindPopup(a);});addressInput.value='';};
+    routeBtn.onclick=()=>{if(!myLoc||markers.length===0)return alert('حدد نقطة البداية وأضف عنواناً');if(routingControl)map.removeControl(routingControl);const w=[L.latLng(myLoc),...markers.map(m=>L.latLng(m))];routingControl=L.Routing.control({waypoints:w,lineOptions:{styles:[{color:'#38bdf8',weight:6}]},routeWhileDragging:false}).addTo(map);};
+    addresses.forEach(a=>geocode(a,d=>{markers.push([+d.lat,+d.lon]);L.marker([+d.lat,+d.lon]).addTo(map).bindPopup(a);}));renderList();
+  </script>
 </body>
 </html>

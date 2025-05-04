@@ -1,140 +1,287 @@
-<!-- index.html -->
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html dir="rtl" lang="ar">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#1e293b" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="icon-192.png" />
-  <title>تطبيق التوصيل الذكي</title>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
-  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:white; }
-    #map { height:100vh; }
-    .sheet-toggle { position:fixed; bottom:20px; right:20px; width:60px; height:60px; background:#10b981; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.4); cursor:pointer; z-index:1001; }
-    .sheet-toggle i { color:white; font-size:1.5rem; }
-    .bottom-sheet { position:fixed; bottom:0; left:0; right:0; height:60%; background:rgba(30,30,30,0.95); backdrop-filter:blur(8px); border-top-left-radius:20px; border-top-right-radius:20px; padding:20px; display:none; flex-direction:column; z-index:1000; overflow:hidden; }
-    .bottom-sheet.open { display:flex; }
-    .bottom-sheet h2 { text-align:center; margin-bottom:10px; }
-    .input { width:100%; margin-bottom:12px; padding:14px; border:none; border-radius:10px; font-size:1rem; background:#334155; color:white; }
-    button { width:100%; margin-bottom:12px; padding:14px; border:none; border-radius:10px; font-size:1rem; background:#10b981; color:white; cursor:pointer; }
-    .list { flex:1; overflow-y:auto; margin-bottom:12px; }
-    .list-item { background:#1f2937; padding:12px; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
-    .list-item span { flex:1; word-break:break-word; }
-    .list-item button { margin-left:8px; padding:6px 10px; font-size:0.9rem; border:none; border-radius:8px; cursor:pointer; }
-    .edit-btn { background:#f59e0b; color:black; }
-    .delete-btn { background:#ef4444; color:white; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق التوصيل الذكي</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #1F2937;
+            color: #F3F4F6;
+            direction: rtl;
+        }
+        #map {
+            height: 100vh;
+            width: 70%;
+            float: left;
+        }
+        .sidebar {
+            width: 30%;
+            float: right;
+            padding: 20px;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+        }
+        .top-bar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 0;
+            background: #1F2937;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+        }
+        .address-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #3B82F6;
+            background: #1F2937;
+            color: #F3F4F6;
+        }
+        .address-list {
+            list-style: none;
+            padding: 0;
+        }
+        .address-item {
+            background: #3B82F6;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: move;
+            transition: transform 0.2s;
+        }
+        .address-item:hover {
+            transform: translateX(-5px);
+        }
+        .btn {
+            background: #3B82F6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .leaflet-control-container {
+            margin-left: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3B82F6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
-  <div id="map"></div>
-  <div class="sheet-toggle" id="toggleBtn"><i>&#9776;</i></div>
-  <div class="bottom-sheet" id="sheet">
-    <h2>إدارة التوصيل</h2>
-    <input id="originInput" class="input" placeholder="عنوان البداية" readonly />
-    <button id="editOriginBtn">✏️ تعديل البداية</button>
-    <input id="addressInput" class="input" placeholder="أدخل عنوان التوصيل" />
-    <button id="addBtn">➕ إضافة</button>
-    <div class="list" id="list"></div>
-    <button id="routeBtn">🚗 ابدأ التنقل</button>
-  </div>
+    <div class="top-bar">
+        <div id="status">
+            <span id="time"></span> | 
+            <i class="fas fa-battery-half"></i> <span id="battery"></span> | 
+            <i class="fas fa-signal"></i> <span id="signal"> Good</span> | 
+            <i class="fas fa-cloud-sun"></i> <span id="weather">25°C</span>
+        </div>
+        <button class="btn" onclick="toggleTheme()">تبديل الثيم</button>
+    </div>
 
-  <script>
-    // Map init
-    const map = L.map('map').setView([0,0],2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    <div id="map"></div>
+    <div class="sidebar">
+        <input type="text" id="addressInput" class="address-input" placeholder="ابحث عن عنوان..." list="suggestions">
+        <datalist id="suggestions"></datalist>
+        <button class="btn" onclick="addCurrentLocation()">أضف موقعك الحالي</button>
+        <button class="btn" onclick="calculateRoute()">ابدأ التوجيه</button>
+        <select id="transportMode" class="address-input">
+            <option value="car">سيارة</option>
+            <option value="bike">دراجة</option>
+            <option value="foot">مشي</option>
+        </select>
+        <div class="spinner" id="loading"></div>
+        <ul id="addressList" class="address-list"></ul>
+        <div id="routeDetails"></div>
+    </div>
 
-    // UI
-    const sheet = document.getElementById('sheet');
-    document.getElementById('toggleBtn').onclick = ()=> sheet.classList.toggle('open');
-    const originInput = document.getElementById('originInput');
-    const editOriginBtn = document.getElementById('editOriginBtn');
-    const addressInput = document.getElementById('addressInput');
-    const addBtn = document.getElementById('addBtn');
-    const routeBtn = document.getElementById('routeBtn');
-    const listEl = document.getElementById('list');
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        let map, markers = L.markerClusterGroup(), routeControl;
+        const savedAddresses = JSON.parse(localStorage.getItem('addresses')) || [];
+        const geocoder = L.Control.Geocoder.nominatim({ geocodingQueryParams: { countrycodes: 'eg' } });
 
-    // Data
-    let myLoc, myMarker;
-    let addresses = JSON.parse(localStorage.getItem('addresses')||'[]');
-    let markers = [];
-    let routingControl;
+        function initMap() {
+            map = L.map('map').setView([30.0444, 31.2357], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+            
+            markers.addTo(map);
+            loadSavedAddresses();
+        }
 
-    // On first load, request location
-    window.onload = () => {
-      if (!navigator.geolocation) { alert('المتصفح لا يدعم تحديد الموقع'); return; }
-      navigator.geolocation.getCurrentPosition(p=>{
-        myLoc = [p.coords.latitude, p.coords.longitude];
-        setOrigin(myLoc, 'موقعي الحالي');
-      }, e=>{
-        alert('يرجى السماح بالوصول للموقع');
-      });
-    };
+        function addMarker(latlng, address) {
+            const marker = L.marker(latlng, { draggable: true })
+                .bindPopup(address)
+                .on('dragend', (e) => updateMarkerPosition(e.target))
+                .addTo(markers);
+            return marker;
+        }
 
-    function setOrigin([lat,lon], label) {
-      originInput.value = label;
-      if (myMarker) map.removeLayer(myMarker);
-      myMarker = L.marker([lat,lon],{draggable:true}).addTo(map).bindPopup(label).openPopup();
-      myMarker.on('dragend', e=>{
-        const p = e.target.getLatLng(); myLoc=[p.lat,p.lng];
-      });
-      map.setView([lat,lon],14);
-    }
+        function updateMarkerPosition(marker) {
+            geocodeLatLng(marker.getLatLng(), (address) => {
+                marker.bindPopup(address).update();
+                updateSavedAddress(marker);
+            });
+        }
 
-    editOriginBtn.onclick = () => {
-      const newAddr = prompt('العنوان الجديد للبداية:', originInput.value);
-      if (newAddr) {
-        geocode(newAddr, d=>{
-          myLoc=[+d.lat,+d.lon];
-          setOrigin(myLoc, newAddr);
+        function geocodeAddress(query, callback) {
+            geocoder.geocode(query, (results) => {
+                if (results.length) callback(results[0].center, results[0].name);
+                else Swal.fire('خطأ', 'لم يتم العثور على العنوان', 'error');
+            });
+        }
+
+        function geocodeLatLng(latlng, callback) {
+            geocoder.reverse(latlng, map.getZoom(), (results) => {
+                if (results.length) callback(results[0].name);
+            });
+        }
+
+        function addAddress(latlng, address) {
+            const marker = addMarker(latlng, address);
+            savedAddresses.push({ lat: latlng.lat, lng: latlng.lng, address });
+            localStorage.setItem('addresses', JSON.stringify(savedAddresses));
+            renderAddressList();
+        }
+
+        function loadSavedAddresses() {
+            savedAddresses.forEach(addr => {
+                addMarker(L.latLng(addr.lat, addr.lng), addr.address);
+            });
+            renderAddressList();
+        }
+
+        function renderAddressList() {
+            const list = document.getElementById('addressList');
+            list.innerHTML = '';
+            savedAddresses.forEach((addr, index) => {
+                const item = document.createElement('li');
+                item.className = 'address-item';
+                item.textContent = addr.address;
+                item.draggable = true;
+                item.onclick = () => map.setView([addr.lat, addr.lng], 15);
+                list.appendChild(item);
+            });
+            Sortable.create(list, { onUpdate: updateAddressOrder });
+        }
+
+        function updateAddressOrder() {
+            const newOrder = Array.from(document.querySelectorAll('.address-item'))
+                .map(item => savedAddresses.find(addr => addr.address === item.textContent));
+            localStorage.setItem('addresses', JSON.stringify(newOrder));
+            savedAddresses.length = 0;
+            savedAddresses.push(...newOrder);
+        }
+
+        function addCurrentLocation() {
+            showLoading();
+            navigator.geolocation.getCurrentPosition(position => {
+                const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
+                geocodeLatLng(latlng, address => {
+                    addAddress(latlng, address);
+                    hideLoading();
+                });
+            }, () => {
+                Swal.fire('خطأ', 'لم يتم تفعيل تحديد الموقع', 'error');
+                hideLoading();
+            });
+        }
+
+        function calculateRoute() {
+            if (savedAddresses.length < 2) {
+                Swal.fire('تنبيه', 'أضف نقطتين على الأقل', 'info');
+                return;
+            }
+            
+            if (routeControl) map.removeControl(routeControl);
+            
+            const waypoints = savedAddresses.map(addr => L.latLng(addr.lat, addr.lng));
+            routeControl = L.Routing.control({
+                waypoints,
+                router: L.Routing.osrmv1({
+                    serviceUrl: 'https://router.project-osrm.org/route/v1'
+                }),
+                routeWhileDragging: false,
+                addWaypoints: false,
+                lineOptions: { styles: [{ color: '#3B82F6', weight: 5 }] },
+                createMarker: (i, wp) => L.marker(wp.latLng, { draggable: true })
+            }).addTo(map);
+            
+            routeControl.on('routesfound', (e) => {
+                const route = e.routes[0];
+                document.getElementById('routeDetails').innerHTML = `
+                    <div>المسافة: ${route.summary.totalDistance.toFixed(2)} متر</div>
+                    <div>الوقت: ${Math.round(route.summary.totalTime / 60)} دقيقة</div>
+                `;
+            });
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'inline-block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        document.getElementById('addressInput').addEventListener('input', (e) => {
+            if (e.target.value.length > 3) {
+                geocoder.geocode(e.target.value, (results) => {
+                    const suggestions = document.getElementById('suggestions');
+                    suggestions.innerHTML = results.slice(0, 5).map(r => 
+                        `<option value="${r.name}">${r.name}</option>`
+                    ).join('');
+                });
+            }
         });
-      }
-    };
 
-    // Render list
-    function renderList() {
-      listEl.innerHTML='';
-      addresses.forEach((addr,i)=>{
-        const div=document.createElement('div'); div.className='list-item';
-        div.innerHTML = `<span>${addr}</span><div><button class="edit-btn" onclick="edit(${i})">✏️</button><button class="delete-btn" onclick="del(${i})">🗑️</button></div>`;
-        listEl.appendChild(div);
-      });
-    }
-    window.del = i => { addresses.splice(i,1); update(); };
-    window.edit = i => { const na=prompt('العنوان الجديد:',addresses[i]); if(na){addresses[i]=na; update();}};
-    function update(){ localStorage.setItem('addresses',JSON.stringify(addresses)); renderList(); }
+        document.getElementById('addressInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                geocodeAddress(e.target.value, (latlng, address) => {
+                    addAddress(latlng, address);
+                    e.target.value = '';
+                });
+            }
+        });
 
-    // Add address
-    addBtn.onclick = () => {
-      const a = addressInput.value.trim(); if(!a) return;
-      addresses.push(a); update();
-      geocode(a, d=>{ markers.push([+d.lat,+d.lon]); L.marker([+d.lat,+d.lon]).addTo(map).bindPopup(a); });
-      addressInput.value='';
-    };
+        setInterval(() => {
+            document.getElementById('time').textContent = new Date().toLocaleTimeString('ar-EG');
+        }, 1000);
 
-    // Routing
-    routeBtn.onclick = () => {
-      if(!myLoc||markers.length===0) return alert('حدد نقطة البداية وأضف عنواناً واحداً على الأقل');
-      if(routingControl) map.removeControl(routingControl);
-      const wpts = [ L.latLng(myLoc), ...markers.map(m=>L.latLng(m)) ];
-      routingControl = L.Routing.control({ waypoints:wpts, lineOptions:{styles:[{color:'#38bdf8',weight:6}]}, routeWhileDragging:false }).addTo(map);
-    };
-
-    // Geocode helper
-    function geocode(addr, cb) {
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`)
-        .then(r=>r.json()).then(data=>{ if(data[0]) cb(data[0]); });
-    }
-
-    // Initialize saved addresses
-    addresses.forEach(a=>{
-      geocode(a, d=>{ markers.push([+d.lat,+d.lon]); L.marker([+d.lat,+d.lon]).addTo(map).bindPopup(a); });
-    });
-    renderList();
-  </script>
+        initMap();
+    </script>
 </body>
 </html>

@@ -16,31 +16,42 @@
             background-color: #1F2937;
             color: #F3F4F6;
             direction: rtl;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #container {
+            flex: 1;
+            display: flex;
+            position: relative;
         }
         #map {
-            height: 100vh;
-            width: 70%;
-            float: left;
+            flex: 1;
+            height: 100%;
+            margin-top: 60px;
         }
         .sidebar {
-            width: 30%;
-            float: right;
+            width: 350px;
+            height: calc(100vh - 60px);
             padding: 20px;
-            height: 100vh;
+            background: #1F2937;
+            border-left: 1px solid #3B82F6;
             overflow-y: auto;
-            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1;
         }
         .top-bar {
             position: fixed;
             top: 0;
-            right: 0;
             left: 0;
+            right: 0;
             background: #1F2937;
             padding: 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             z-index: 1000;
+            height: 60px;
         }
         .address-input {
             width: 100%;
@@ -54,14 +65,16 @@
         .address-list {
             list-style: none;
             padding: 0;
+            margin-top: 20px;
         }
         .address-item {
             background: #3B82F6;
             margin: 5px 0;
-            padding: 10px;
-            border-radius: 5px;
+            padding: 12px;
+            border-radius: 8px;
             cursor: move;
             transition: transform 0.2s;
+            position: relative;
         }
         .address-item:hover {
             transform: translateX(-5px);
@@ -74,9 +87,13 @@
             border-radius: 5px;
             cursor: pointer;
             margin: 5px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #2563EB;
         }
         .leaflet-control-container {
-            margin-left: 20px;
+            margin: 10px;
         }
         .spinner {
             border: 4px solid #f3f3f3;
@@ -86,6 +103,10 @@
             height: 30px;
             animation: spin 1s linear infinite;
             display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -96,28 +117,34 @@
 <body>
     <div class="top-bar">
         <div id="status">
-            <span id="time"></span> | 
-            <i class="fas fa-battery-half"></i> <span id="battery"></span> | 
-            <i class="fas fa-signal"></i> <span id="signal"> Good</span> | 
+            <i class="fas fa-clock"></i> <span id="time"></span> | 
+            <i class="fas fa-battery-half"></i> <span id="battery">90%</span> | 
+            <i class="fas fa-signal"></i> <span id="signal">قوي</span> | 
             <i class="fas fa-cloud-sun"></i> <span id="weather">25°C</span>
         </div>
-        <button class="btn" onclick="toggleTheme()">تبديل الثيم</button>
+        <button class="btn" onclick="toggleTheme()"><i class="fas fa-moon"></i> تبديل الثيم</button>
     </div>
 
-    <div id="map"></div>
-    <div class="sidebar">
-        <input type="text" id="addressInput" class="address-input" placeholder="ابحث عن عنوان..." list="suggestions">
-        <datalist id="suggestions"></datalist>
-        <button class="btn" onclick="addCurrentLocation()">أضف موقعك الحالي</button>
-        <button class="btn" onclick="calculateRoute()">ابدأ التوجيه</button>
-        <select id="transportMode" class="address-input">
-            <option value="car">سيارة</option>
-            <option value="bike">دراجة</option>
-            <option value="foot">مشي</option>
-        </select>
-        <div class="spinner" id="loading"></div>
-        <ul id="addressList" class="address-list"></ul>
-        <div id="routeDetails"></div>
+    <div id="container">
+        <div id="map"></div>
+        <div class="sidebar">
+            <input type="text" id="addressInput" class="address-input" placeholder="ابحث عن عنوان..." list="suggestions">
+            <datalist id="suggestions"></datalist>
+            
+            <div class="button-group">
+                <button class="btn" onclick="addCurrentLocation()"><i class="fas fa-location-arrow"></i> أضف موقعك الحالي</button>
+                <button class="btn" onclick="calculateRoute()"><i class="fas fa-route"></i> ابدأ التوجيه</button>
+                <select id="transportMode" class="address-input">
+                    <option value="car">سيارة</option>
+                    <option value="bike">دراجة</option>
+                    <option value="foot">مشي</option>
+                </select>
+            </div>
+            
+            <div class="spinner" id="loading"></div>
+            <ul id="addressList" class="address-list"></ul>
+            <div id="routeDetails" class="route-details"></div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -131,11 +158,16 @@
         const geocoder = L.Control.Geocoder.nominatim({ geocodingQueryParams: { countrycodes: 'eg' } });
 
         function initMap() {
-            map = L.map('map').setView([30.0444, 31.2357], 10);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap'
-            }).addTo(map);
+            map = L.map('map', {
+                center: [30.0444, 31.2357],
+                zoom: 12,
+                layers: [
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '© OpenStreetMap'
+                    })
+                ]
+            });
             
             markers.addTo(map);
             loadSavedAddresses();
@@ -151,7 +183,7 @@
 
         function updateMarkerPosition(marker) {
             geocodeLatLng(marker.getLatLng(), (address) => {
-                marker.bindPopup(address).update();
+                marker.bindPopup(address).openPopup();
                 updateSavedAddress(marker);
             });
         }
@@ -187,9 +219,12 @@
             const list = document.getElementById('addressList');
             list.innerHTML = '';
             savedAddresses.forEach((addr, index) => {
-                const item = document.createElement('li');
+                const item = document.createElement('div');
                 item.className = 'address-item';
-                item.textContent = addr.address;
+                item.innerHTML = `
+                    <div>${addr.address}</div>
+                    <button class="btn btn-danger" onclick="deleteAddress(${index})"><i class="fas fa-trash"></i></button>
+                `;
                 item.draggable = true;
                 item.onclick = () => map.setView([addr.lat, addr.lng], 15);
                 list.appendChild(item);
@@ -199,10 +234,28 @@
 
         function updateAddressOrder() {
             const newOrder = Array.from(document.querySelectorAll('.address-item'))
-                .map(item => savedAddresses.find(addr => addr.address === item.textContent));
+                .map(item => savedAddresses.find(addr => addr.address === item.textContent.split('\n')[0]));
             localStorage.setItem('addresses', JSON.stringify(newOrder));
             savedAddresses.length = 0;
             savedAddresses.push(...newOrder);
+        }
+
+        function deleteAddress(index) {
+            Swal.fire({
+                title: 'تأكيد الحذف',
+                text: 'هل أنت متأكد من حذف هذا العنوان؟',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'نعم',
+                cancelButtonText: 'لا'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    savedAddresses.splice(index, 1);
+                    localStorage.setItem('addresses', JSON.stringify(savedAddresses));
+                    markers.clearLayers();
+                    loadSavedAddresses();
+                }
+            });
         }
 
         function addCurrentLocation() {
@@ -242,14 +295,14 @@
             routeControl.on('routesfound', (e) => {
                 const route = e.routes[0];
                 document.getElementById('routeDetails').innerHTML = `
-                    <div>المسافة: ${route.summary.totalDistance.toFixed(2)} متر</div>
-                    <div>الوقت: ${Math.round(route.summary.totalTime / 60)} دقيقة</div>
+                    <div class="route-detail-item">المسافة الإجمالية: ${route.summary.totalDistance.toFixed(2)} متر</div>
+                    <div class="route-detail-item">الوقت المتوقع: ${Math.round(route.summary.totalTime / 60)} دقيقة</div>
                 `;
             });
         }
 
         function showLoading() {
-            document.getElementById('loading').style.display = 'inline-block';
+            document.getElementById('loading').style.display = 'block';
         }
 
         function hideLoading() {

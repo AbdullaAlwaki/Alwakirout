@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <title>Mini Apple-Maps Clone</title>
-  <!-- Leaflet CSS -->
+  <title>خريطة مجانية - بدون أي توكين</title>
+  <!-- Leaflet CSS مجاناً من CDN -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -16,29 +16,21 @@
     href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"
   />
   <style>
-    /* full-screen map */
-    html, body { margin:0; padding:0; height:100%; }
+    html, body { margin:0; padding:0; height:100%; font-family:sans-serif; }
     #map { position:absolute; top:0; bottom:0; right:0; left:250px; }
-    /* sidebar */
     #sidebar {
       position: absolute; top:0; bottom:0; left:0; width:250px;
-      background:#f7f7f7; border-right:1px solid #ccc;
-      overflow:auto; font-family:sans-serif; padding:10px;
+      background:#fafafa; border-left:1px solid #ccc;
+      overflow:auto; padding:10px; box-sizing:border-box;
     }
     #sidebar h2 { margin-top:0; font-size:1.2em; }
-    #favorites, #recents { list-style:none; padding:0; }
-    #favorites li, #recents li {
-      margin:5px 0; cursor:pointer; color:#007aff;
-    }
-    #favorites li:hover, #recents li:hover { text-decoration:underline; }
+    ul { list-style:none; padding:0; }
+    li { margin:5px 0; cursor:pointer; color:#007aff; }
+    li:hover { text-decoration:underline; }
     .leaflet-control-geocoder-icon { background-image: none; }
     .locate-btn {
-      background: white;
-      border: 1px solid #ccc;
-      border-radius:4px;
-      padding:6px;
-      cursor:pointer;
-      box-shadow:0 1px 4px rgba(0,0,0,0.3);
+      background: white; border:1px solid #ccc; border-radius:4px;
+      padding:6px; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.3);
     }
     .locate-btn:hover { background:#eee; }
   </style>
@@ -46,14 +38,13 @@
 <body>
 
 <div id="sidebar">
-  <h2>🔍 Search</h2>
-  <!-- will be populated by geocoder control -->
+  <h2>🔍 بحث</h2>
   <div id="geocoder"></div>
 
-  <h2>⭐ Favorites</h2>
+  <h2>⭐ مفضلات</h2>
   <ul id="favorites"></ul>
 
-  <h2>🕑 Recents</h2>
+  <h2>🕑 البحث الأخير</h2>
   <ul id="recents"></ul>
 </div>
 <div id="map"></div>
@@ -68,25 +59,19 @@
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
 <script>
-  // initialize map
-  var map = L.map('map').setView([51.505, -0.09], 13);
+  // تهيئة الخريطة
+  var map = L.map('map').setView([31.7917, 35.2170], 6); // مركز أولي: الأردن
 
-  // base layers
+  // طبقة OpenStreetMap المجانية
   var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OSM'
+    attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
-  var satellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-    subdomains:['mt0','mt1','mt2','mt3'],
-    attribution: '&copy; Google'
-  });
-  // layer switcher
-  L.control.layers({ 'OSM': osm, 'Satellite': satellite }).addTo(map);
 
-  // location button
+  // زر تحديد الموقع الحالي
   var locateBtn = L.control({position:'topright'});
   locateBtn.onAdd = function(){
     var div = L.DomUtil.create('div','locate-btn');
-    div.title = 'Show My Location';
+    div.title = 'موقعي';
     div.innerHTML = '📍';
     div.onclick = function(){
       map.locate({setView:true, maxZoom:16});
@@ -99,89 +84,79 @@
     L.marker(e.latlng).addTo(map);
   });
 
-  // Geocoder (search box)
+  // إضافة صندوق البحث (Nominatim مجاني)
   var geocoder = L.Control.geocoder({
-    defaultMarkGeocode: false
+    defaultMarkGeocode: false,
+    placeholder: 'ابحث عن مكان...'
   })
     .on('markgeocode', function(e){
-      var center = e.geocode.center;
-      map.setView(center, 15);
-      // add marker
-      var marker = L.marker(center).addTo(map)
+      var c = e.geocode.center;
+      map.setView(c, 15);
+
+      // إضافة علامة مع خيارات
+      var marker = L.marker(c).addTo(map)
         .bindPopup(
           '<b>'+e.geocode.name+'</b><br/>' +
-          '<button onclick="saveFavorite('+center.lat+','+center.lng+',\''+e.geocode.name.replace(/'/g,"\\'")+'\')">★ Favorite</button> ' +
-          '<button onclick="getDirections('+center.lat+','+center.lng+')">Directions</button>'
+          '<button onclick="saveFavorite('+c.lat+','+c.lng+',\''+e.geocode.name.replace(/'/g,"\\'")+'\')">★ مفضلة</button> ' +
+          '<button onclick="getDirections('+c.lat+','+c.lng+')">🗺 اتجاه</button>'
         )
         .openPopup();
-      addRecent(e.geocode.name, center);
+
+      addRecent(e.geocode.name, c);
     })
     .addTo(map);
 
-  // move geocoder into our sidebar
+  // نقل صندوق البحث إلى الشريط الجانبي
   document.getElementById('geocoder')
     .appendChild(geocoder.getContainer());
 
-  // recents & favorites handlers
-  var recentsKey = 'mymap_recents';
-  var favsKey    = 'mymap_favorites';
+  // مفاتيح التخزين
+  var recentsKey = 'map_recents';
+  var favsKey    = 'map_favorites';
 
+  // دوال التخزين والرسم
   function loadList(key){
     return JSON.parse(localStorage.getItem(key) || '[]');
   }
   function saveList(key, arr){
     localStorage.setItem(key, JSON.stringify(arr));
   }
-
-  function renderList(id, key, clickFn){
+  function renderList(id, key, onClick){
     var ul = document.getElementById(id);
     ul.innerHTML = '';
     loadList(key).forEach(function(item){
       var li = document.createElement('li');
       li.textContent = item.name;
-      li.onclick = function(){
-        clickFn(item);
-      };
+      li.onclick = function(){ onClick(item); };
       ul.appendChild(li);
     });
   }
 
   function addRecent(name, center){
-    var recents = loadList(recentsKey);
-    // remove duplicates
-    recents = recents.filter(r=>r.name!==name);
-    recents.unshift({name:name, lat:center.lat, lng:center.lng});
-    if(recents.length>5) recents.pop();
-    saveList(recentsKey, recents);
-    renderList('recents', recentsKey, function(item){
-      map.setView([item.lat, item.lng],15);
-    });
+    var rec = loadList(recentsKey)
+      .filter(r=>r.name!==name);
+    rec.unshift({name:name, lat:center.lat, lng:center.lng});
+    if(rec.length>5) rec.pop();
+    saveList(recentsKey, rec);
+    renderList('recents', recentsKey, item=>map.setView([item.lat,item.lng],15));
   }
-
   function saveFavorite(lat, lng, name){
-    var favs = loadList(favsKey);
-    if(!favs.find(f=>f.name===name)){
-      favs.push({name:name, lat:lat, lng:lng});
-      saveList(favsKey, favs);
-      renderList('favorites', favsKey, function(item){
-        map.setView([item.lat, item.lng],15);
-      });
+    var fav = loadList(favsKey);
+    if(!fav.find(f=>f.name===name)){
+      fav.push({name:name, lat:lat, lng:lng});
+      saveList(favsKey, fav);
+      renderList('favorites', favsKey, item=>map.setView([item.lat,item.lng],15));
     }
   }
-
   function getDirections(lat, lng){
-    // open Google Maps directions in new tab
+    // رابط اتجاهات Google مجاني ولا يحتاج API توكين للفتح في المتصفح
     var url = 'https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng;
     window.open(url, '_blank');
   }
 
-  // initial render
-  renderList('recents', recentsKey, function(item){
-    map.setView([item.lat, item.lng],15);
-  });
-  renderList('favorites', favsKey, function(item){
-    map.setView([item.lat, item.lng],15);
-  });
+  // عرض القوائم عند التحميل
+  renderList('recents', recentsKey, item=>map.setView([item.lat,item.lng],15));
+  renderList('favorites', favsKey, item=>map.setView([item.lat,item.lng],15));
 
 </script>
 </body>

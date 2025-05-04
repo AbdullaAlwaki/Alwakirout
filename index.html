@@ -1,37 +1,188 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>خريطة Leaflet</title>
-  <style>
-    /* CSS في نفس الملف */
-    #map { width: 100vw; height: 100vh; margin: 0; padding: 0; }
-  </style>
-  <!-- تضمين Leaflet من CDN -->
+  <meta charset="UTF-8" />
+  <title>Mini Apple-Maps Clone</title>
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-sA+e2SjBtp1kVKZznMyixTyfAPFjv8I5nq+psT0oShM="
+    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+    integrity="sha256-uQ5XH1YyMnx61o4iR+IaF+Ehc2k46kYp1m0G6o4xr14="
     crossorigin=""
   />
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-o9N1j8kuy2bOprXHwV8f39Gnby+zxGNxVMp4Srb+zKs="
-    crossorigin=""
-  ></script>
+  <!-- Geocoder CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"
+  />
+  <style>
+    /* full-screen map */
+    html, body { margin:0; padding:0; height:100%; }
+    #map { position:absolute; top:0; bottom:0; right:0; left:250px; }
+    /* sidebar */
+    #sidebar {
+      position: absolute; top:0; bottom:0; left:0; width:250px;
+      background:#f7f7f7; border-right:1px solid #ccc;
+      overflow:auto; font-family:sans-serif; padding:10px;
+    }
+    #sidebar h2 { margin-top:0; font-size:1.2em; }
+    #favorites, #recents { list-style:none; padding:0; }
+    #favorites li, #recents li {
+      margin:5px 0; cursor:pointer; color:#007aff;
+    }
+    #favorites li:hover, #recents li:hover { text-decoration:underline; }
+    .leaflet-control-geocoder-icon { background-image: none; }
+    .locate-btn {
+      background: white;
+      border: 1px solid #ccc;
+      border-radius:4px;
+      padding:6px;
+      cursor:pointer;
+      box-shadow:0 1px 4px rgba(0,0,0,0.3);
+    }
+    .locate-btn:hover { background:#eee; }
+  </style>
 </head>
 <body>
-  <div id="map"></div>
 
-  <script>
-    // إنشاء الخريطة وضبط المركز على سان فرانسيسكو كمثال
-    const map = L.map('map').setView([37.7749, -122.4194], 13);
+<div id="sidebar">
+  <h2>🔍 Search</h2>
+  <!-- will be populated by geocoder control -->
+  <div id="geocoder"></div>
 
-    // إضافة بلاطات OpenStreetMap
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-  </script>
+  <h2>⭐ Favorites</h2>
+  <ul id="favorites"></ul>
+
+  <h2>🕑 Recents</h2>
+  <ul id="recents"></ul>
+</div>
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script
+  src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+  integrity="sha256-p3x0VCj0uUHeNIg1E0t59gRSlBMOZc8DRFQ5w5TttyM="
+  crossorigin=""
+></script>
+<!-- Geocoder plugin -->
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<script>
+  // initialize map
+  var map = L.map('map').setView([51.505, -0.09], 13);
+
+  // base layers
+  var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OSM'
+  }).addTo(map);
+  var satellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    subdomains:['mt0','mt1','mt2','mt3'],
+    attribution: '&copy; Google'
+  });
+  // layer switcher
+  L.control.layers({ 'OSM': osm, 'Satellite': satellite }).addTo(map);
+
+  // location button
+  var locateBtn = L.control({position:'topright'});
+  locateBtn.onAdd = function(){
+    var div = L.DomUtil.create('div','locate-btn');
+    div.title = 'Show My Location';
+    div.innerHTML = '📍';
+    div.onclick = function(){
+      map.locate({setView:true, maxZoom:16});
+    };
+    return div;
+  };
+  locateBtn.addTo(map);
+  map.on('locationfound', function(e){
+    L.circle(e.latlng, {radius:e.accuracy/2, color:'#136AEC'}).addTo(map);
+    L.marker(e.latlng).addTo(map);
+  });
+
+  // Geocoder (search box)
+  var geocoder = L.Control.geocoder({
+    defaultMarkGeocode: false
+  })
+    .on('markgeocode', function(e){
+      var center = e.geocode.center;
+      map.setView(center, 15);
+      // add marker
+      var marker = L.marker(center).addTo(map)
+        .bindPopup(
+          '<b>'+e.geocode.name+'</b><br/>' +
+          '<button onclick="saveFavorite('+center.lat+','+center.lng+',\''+e.geocode.name.replace(/'/g,"\\'")+'\')">★ Favorite</button> ' +
+          '<button onclick="getDirections('+center.lat+','+center.lng+')">Directions</button>'
+        )
+        .openPopup();
+      addRecent(e.geocode.name, center);
+    })
+    .addTo(map);
+
+  // move geocoder into our sidebar
+  document.getElementById('geocoder')
+    .appendChild(geocoder.getContainer());
+
+  // recents & favorites handlers
+  var recentsKey = 'mymap_recents';
+  var favsKey    = 'mymap_favorites';
+
+  function loadList(key){
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  }
+  function saveList(key, arr){
+    localStorage.setItem(key, JSON.stringify(arr));
+  }
+
+  function renderList(id, key, clickFn){
+    var ul = document.getElementById(id);
+    ul.innerHTML = '';
+    loadList(key).forEach(function(item){
+      var li = document.createElement('li');
+      li.textContent = item.name;
+      li.onclick = function(){
+        clickFn(item);
+      };
+      ul.appendChild(li);
+    });
+  }
+
+  function addRecent(name, center){
+    var recents = loadList(recentsKey);
+    // remove duplicates
+    recents = recents.filter(r=>r.name!==name);
+    recents.unshift({name:name, lat:center.lat, lng:center.lng});
+    if(recents.length>5) recents.pop();
+    saveList(recentsKey, recents);
+    renderList('recents', recentsKey, function(item){
+      map.setView([item.lat, item.lng],15);
+    });
+  }
+
+  function saveFavorite(lat, lng, name){
+    var favs = loadList(favsKey);
+    if(!favs.find(f=>f.name===name)){
+      favs.push({name:name, lat:lat, lng:lng});
+      saveList(favsKey, favs);
+      renderList('favorites', favsKey, function(item){
+        map.setView([item.lat, item.lng],15);
+      });
+    }
+  }
+
+  function getDirections(lat, lng){
+    // open Google Maps directions in new tab
+    var url = 'https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng;
+    window.open(url, '_blank');
+  }
+
+  // initial render
+  renderList('recents', recentsKey, function(item){
+    map.setView([item.lat, item.lng],15);
+  });
+  renderList('favorites', favsKey, function(item){
+    map.setView([item.lat, item.lng],15);
+  });
+
+</script>
 </body>
 </html>

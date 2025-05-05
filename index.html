@@ -17,18 +17,19 @@
     #map{position:absolute;top:0;left:0;right:0;bottom:0}
     .sheet-toggle{position:fixed;bottom:20px;right:20px;width:60px;height:60px;background:#10b981;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:1001}
     .sheet-toggle i{color:#fff;font-size:1.5rem}
-    .bottom-sheet{position:fixed;left:0;right:0;height:60%;background:rgba(30,30,30,0.95);backdrop-filter:blur(8px);border-top-left-radius:20px;border-top-right-radius:20px;padding:20px;display:none;flex-direction:column;z-index:1000;overflow:hidden;touch-action:none}
+    .bottom-sheet{position:fixed;left:0;right:0;height:60%;background:rgba(30,30,30,0.95);backdrop-filter:blur(8px);border-top-left-radius:20px;border-top-right-radius:20px;padding:20px;display:none;flex-direction:column;z-index:1000;overflow:hidden;}
     .bottom-sheet.open{display:flex}
     .drag-handle{width:50px;height:5px;background:#4b5563;border-radius:3px;margin:0 auto 10px;cursor:grab}
     h2{text-align:center;margin-bottom:10px}
-    .input{width:100%;margin-bottom:12px;padding:14px;border:none;border-radius:10px;font-size:1rem;background:#334155;color:#fff}
+    .input{width:100%;margin-bottom:12px;padding:14px;border:none;border-radius:10px;font-size:1rem;background:#334155;color:#fff;cursor:pointer}
+    .input[readonly]{background:#1f2937;}
+    .address-input{width:100%;margin-bottom:12px;padding:14px;border:none;border-radius:10px;font-size:1rem;background:#334155;color:#fff}
     button{width:100%;margin-bottom:12px;padding:14px;border:none;border-radius:10px;font-size:1rem;background:#10b981;color:#fff;cursor:pointer}
     .list{flex:1;overflow-y:auto;margin-bottom:12px}
-    .list-item{background:#1f2937;padding:12px;border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+    .list-item{background:#1f2937;padding:12px;border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:grab}
     .list-item span{flex:1;word-break:break-word}
-    .list-item button{margin-left:8px;padding:6px 10px;font-size:0.9rem;border:none;border-radius:8px;cursor:pointer}
-    .edit-btn{background:#f59e0b;color:#000}
-    .delete-btn{background:#ef4444;color:#fff}
+    .list-item span.editable{cursor:pointer;text-decoration:underline}
+    .list-item button.delete-btn{margin-left:8px;padding:6px 10px;font-size:0.9rem;border:none;border-radius:8px;background:#ef4444;color:#fff;cursor:pointer}
   </style>
 </head>
 <body>
@@ -38,8 +39,7 @@
     <div class="drag-handle" id="handle"></div>
     <h2>Alwaki Route</h2>
     <input id="originInput" class="input" readonly placeholder="تحميل الموقع...">
-    <button id="editOriginBtn">✏️ تعديل نقطة البداية</button>
-    <input id="addressInput" class="input" placeholder="أدخل عنوان التوصيل">
+    <input id="addressInput" class="address-input" placeholder="أدخل عنوان التوصيل">
     <button id="addBtn">➕ إضافة</button>
     <div class="list" id="list"></div>
     <button id="routeBtn">🚗 ابدأ التنقل</button>
@@ -47,24 +47,23 @@
   <script>
     const map=L.map('map').setView([0,0],2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-    const sheet=document.getElementById('sheet'),toggleBtn=document.getElementById('toggleBtn');
-    toggleBtn.onclick=()=>sheet.classList.toggle('open');
-    const handle=document.getElementById('handle');let startY,origPerc=40;
-    handle.addEventListener('pointerdown',e=>{startY=e.clientY;sheet.style.transition='none';window.addEventListener('pointermove',onDrag);window.addEventListener('pointerup',endDrag);});
-    function onDrag(e){let dy=(e.clientY-startY)/window.innerHeight*100;let y=Math.min(Math.max(origPerc+dy,0),origPerc);sheet.style.transform=`translateY(${y}%)`}    
-    function endDrag(e){let dy=(e.clientY-startY)/window.innerHeight*100;origPerc=Math.min(Math.max(origPerc+dy,0),origPerc);sheet.style.transition='transform .2s';sheet.style.transform=`translateY(${origPerc}%)`;window.removeEventListener('pointermove',onDrag);window.removeEventListener('pointerup',endDrag);}
-    const originInput=document.getElementById('originInput'),editOriginBtn=document.getElementById('editOriginBtn');
-    const addressInput=document.getElementById('addressInput'),addBtn=document.getElementById('addBtn'),routeBtn=document.getElementById('routeBtn'),listEl=document.getElementById('list');
-    let myLoc,myMarker,routingControl;let addresses=JSON.parse(localStorage.getItem('addresses')||'[]'),markers=[];
-    if(navigator.geolocation){navigator.geolocation.getCurrentPosition(p=>{myLoc=[p.coords.latitude,p.coords.longitude];fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${myLoc[0]}&lon=${myLoc[1]}&zoom=3`).then(r=>r.json()).then(d=>{if(d.boundingbox){const bb=d.boundingbox.map(parseFloat);map.fitBounds([[bb[0],bb[2]],[bb[1],bb[3]]]);}});setOrigin(myLoc,'موقعي الحالي');},e=>{originInput.value='فشل تحديد الموقع';});}else originInput.value='المتصفح لا يدعم الموقع';
+    const sheet=document.getElementById('sheet'),toggleBtn=document.getElementById('toggleBtn'); toggleBtn.onclick=()=>sheet.classList.toggle('open');
+    const handle=document.getElementById('handle'); handle.addEventListener('pointerdown',startDrag);
+    let startY,origPerc=40; function startDrag(e){startY=e.clientY;sheet.style.transition='none';window.addEventListener('pointermove',onDrag);window.addEventListener('pointerup',endDrag);}    
+    function onDrag(e){let dy=(e.clientY-startY)/window.innerHeight*100, y=Math.min(Math.max(origPerc+dy,0),origPerc);sheet.style.transform=`translateY(${y}%)`;}    
+    function endDrag(e){let dy=(e.clientY-startY)/window.innerHeight*100;origPerc=Math.min(Math.max(origPerc+dy,0),origPerc);sheet.style.transition='transform .2s';sheet.style.transform=`translateY(${origPerc}%)`;window.removeEventListener('pointermove',onDrag);window.removeEventListener('pointerup',endDrag);}    
+    const originInput=document.getElementById('originInput'); const addressInput=document.getElementById('addressInput'); const addBtn=document.getElementById('addBtn'); const routeBtn=document.getElementById('routeBtn'); const listEl=document.getElementById('list');
+    let myLoc,myMarker,routingControl; let addresses=JSON.parse(localStorage.getItem('addresses')||'[]'),markers=[];
+    window.onload=()=>{if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>{myLoc=[p.coords.latitude,p.coords.longitude];fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${myLoc[0]}&lon=${myLoc[1]}&zoom=3`).then(r=>r.json()).then(d=>{if(d.boundingbox){const bb=d.boundingbox.map(parseFloat);map.fitBounds([[bb[0],bb[2]],[bb[1],bb[3]]]);}});setOrigin(myLoc,'موقعي الحالي');},e=>{originInput.value='فشل تحديد الموقع'});else originInput.value='المتصفح لا يدعم';}
     function setOrigin(loc,label){originInput.value=label;if(myMarker)map.removeLayer(myMarker);myMarker=L.marker(loc,{draggable:true}).addTo(map).bindPopup(label).openPopup();myMarker.on('dragend',e=>{const p=e.target.getLatLng();myLoc=[p.lat,p.lng];});}
-    editOriginBtn.onclick=()=>{const na=prompt('العنوان الجديد للبداية:',originInput.value);if(na)geocode(na,d=>setOrigin([+d.lat,+d.lon],na));};
+    originInput.onclick=()=>{const na=prompt('العنوان الجديد للبداية:',originInput.value);if(na)geocode(na,d=>setOrigin([+d.lat,+d.lon],na));};
     function geocode(addr,cb){fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`).then(r=>r.json()).then(a=>a[0]&&cb(a[0]));}
-    function renderList(){listEl.innerHTML='';addresses.forEach((a,i)=>{const div=document.createElement('div');div.className='list-item';div.innerHTML=`<span>${a}</span><div><button class=\"edit-btn\" onclick=\"edit(${i})\">✏️</button><button class=\"delete-btn\" onclick=\"del(${i})\">🗑️</button></div>`;listEl.appendChild(div);});}
-    window.del=i=>{addresses.splice(i,1);update();};window.edit=i=>{const na=prompt('العنوان الجديد:',addresses[i]);if(na){addresses[i]=na;update();}};
+    function renderList(){listEl.innerHTML='';addresses.forEach((a,i)=>{const div=document.createElement('div');div.className='list-item';div.dataset.index=i;div.innerHTML=`<span class="editable">${a}</span><button class="delete-btn" onclick="del(${i})">🗑️</button>`;listEl.appendChild(div);});addItemListeners();}
+    window.del=i=>{addresses.splice(i,1);update();}; window.edit=i=>{const na=prompt('العنوان الجديد:',addresses[i]);if(na){addresses[i]=na;update();}};
+    function addItemListeners(){document.querySelectorAll('.list-item span.editable').forEach((el,i)=>el.onclick=()=>edit(i));}
     function update(){localStorage.setItem('addresses',JSON.stringify(addresses));renderList();}
     addBtn.onclick=()=>{const a=addressInput.value.trim();if(!a)return;addresses.push(a);update();geocode(a,d=>{markers.push([+d.lat,+d.lon]);L.marker([+d.lat,+d.lon]).addTo(map).bindPopup(a);});addressInput.value='';};
-    routeBtn.onclick=()=>{if(!myLoc||markers.length===0)return alert('حدد نقطة البداية وأضف عنواناً');if(routingControl)map.removeControl(routingControl);const w=[L.latLng(myLoc),...markers.map(m=>L.latLng(m))];routingControl=L.Routing.control({waypoints:w,lineOptions:{styles:[{color:'#38bdf8',weight:6}]},routeWhileDragging:false}).addTo(map);};
+    routeBtn.onclick=()=>{if(!myLoc||markers.length===0)return alert('حدد البداية وأضف عنواناً');if(routingControl)map.removeControl(routingControl);const w=[L.latLng(myLoc),...markers.map(m=>L.latLng(m))];routingControl=L.Routing.control({waypoints:w,lineOptions:{styles:[{color:'#38bdf8',weight:6}]},routeWhileDragging:false}).addTo(map);};
     addresses.forEach(a=>geocode(a,d=>{markers.push([+d.lat,+d.lon]);L.marker([+d.lat,+d.lon]).addTo(map).bindPopup(a);}));renderList();
   </script>
 </body>

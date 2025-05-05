@@ -21,14 +21,14 @@
     .bottom-sheet.open{display:flex;transform:translateY(0)}
     .drag-handle{width:50px;height:5px;background:#4b5563;border-radius:3px;margin:0 auto 10px;cursor:grab}
     h2{text-align:center;margin-bottom:10px}
-    .input-suggest{width:100%;margin-bottom:8px;padding:12px;border:none;border-radius:8px;font-size:1rem;background:#334155;color:#fff;position:relative;}
+    .input-suggest{width:100%;margin-bottom:8px;padding:12px;border:none;border-radius:8px;font-size:1rem;background:#334155;color:#fff;position:relative}
     .suggestions ul{position:absolute;bottom:calc(100% + 2px);left:0;right:0;max-height:150px;overflow-y:auto;background:#1f2937;border-radius:8px;list-style:none;margin:0;padding:0;z-index:1002}
     .suggestions ul li{padding:10px;cursor:pointer}
     .suggestions ul li:hover{background:#4b5563}
     button{padding:12px;border:none;border-radius:8px;background:#10b981;color:#fff;font-size:1rem;cursor:pointer;margin-bottom:8px}
     .list{flex:1;overflow-y:auto;margin-bottom:8px}
     .list-item{background:#1f2937;padding:10px;border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
-    .list-item span{flex:1;word-break:break-word;cursor:pointer;text-decoration:underline}
+    .list-item span{flex:1;word-break:break-word}
     .list-item button{background:#ef4444;padding:6px;border:none;border-radius:6px;color:#fff;cursor:pointer}
     .route-btn{position:fixed;bottom:90px;right:30px;width:50px;height:50px;background:#38bdf8;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;cursor:pointer;z-index:1001}
   </style>
@@ -40,39 +40,75 @@
     <div class="drag-handle" id="handle"></div>
     <h2>Alwaki Route</h2>
     <div class="suggestions">
-      <input id="originInput" class="input-suggest" placeholder="نقطة البداية (اضغط للتغيير)">
+      <input id="originInput" class="input-suggest" placeholder="نقطة البداية (اضغط للاختيار)">
       <ul id="originSug"></ul>
     </div>
+    <div class="list" id="stopsList"></div>
     <div class="suggestions">
-      <input id="addressInput" class="input-suggest" placeholder="ابحث عن عنوان التوصيل">
-      <ul id="addrSug"></ul>
+      <input id="stopInput" class="input-suggest" placeholder="ابحث عن محطة توقف">
+      <ul id="stopSug"></ul>
     </div>
-    <button id="addBtn">➕ إضافة</button>
-    <div class="list" id="list"></div>
+    <button id="addStopBtn">➕ إضافة محطة توقف</button>
   </div>
   <div class="route-btn" id="routeBtn">🚗</div>
   <script>
+    // Map and country view via IP-API
     const map=L.map('map').setView([0,0],2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    fetch('https://ipapi.co/json/').then(r=>r.json()).then(d=>{map.setView([d.latitude,d.longitude],5)});
+
+    // UI
     const sheet=document.getElementById('sheet'),toggleBtn=document.getElementById('toggleBtn'); toggleBtn.onclick=()=>sheet.classList.toggle('open');
     const handle=document.getElementById('handle'); handle.addEventListener('pointerdown',()=>{});
-    const originInput=document.getElementById('originInput'),addrInput=document.getElementById('addressInput');
-    const originSug=document.getElementById('originSug'),addrSug=document.getElementById('addrSug');
-    const addBtn=document.getElementById('addBtn'),routeBtn=document.getElementById('routeBtn'),listEl=document.getElementById('list');
-    let myLoc,myMarker,routingControl,originCoords;
-    let addresses=JSON.parse(localStorage.getItem('addresses')||'[]'),markers=[];
-    window.onload=()=>{if(navigator.geolocation) navigator.geolocation.getCurrentPosition(p=>{myLoc=originCoords=[p.coords.latitude,p.coords.longitude];setOrigin(p.coords.latitude,p.coords.longitude,'موقعي');},e=>{originInput.placeholder='فشل تحديد الموقع'});else originInput.placeholder='المتصفح لا يدعم'};
-    function setOrigin(lat,lon,label){originInput.value=label;originCoords=[lat,lon]; if(myMarker)map.removeLayer(myMarker);myMarker=L.marker(originCoords,{draggable:true}).addTo(map).bindPopup(label).openPopup();myMarker.on('dragend',e=>{const p=e.target.getLatLng();originCoords=[p.lat,p.lng];}); map.setView(originCoords,14);}
-    originInput.onclick=async()=>{const q=prompt('أدخل نقطة البداية:',originInput.value);if(q){originInput.value=q;const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);const d=await res.json();if(d[0]) setOrigin(+d[0].lat,+d[0].lon,q);}}
-    addrInput.addEventListener('input',async()=>{const q=addrInput.value; if(q.length<2){addrSug.style.display='none'; return;} addrSug.innerHTML=''; addrSug.style.display='block'; const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`);const d=await res.json();d.forEach(p=>{const li=document.createElement('li');li.textContent=p.display_name;li.onclick=()=>{addrInput.value=p.display_name;addrInput.dataset.lat=p.lat;addrInput.dataset.lon=p.lon;addrSug.style.display='none';};addrSug.appendChild(li);});});
-    document.body.addEventListener('click',e=>{if(!addrInput.contains(e.target)) addrSug.style.display='none';});
-    addBtn.onclick=()=>{const a=addrInput.value.trim(),lat=addrInput.dataset.lat,lon=addrInput.dataset.lon; if(!a||!lat) return;addresses.push(a);update();markers.push([+lat,+lon]);L.marker([+lat,+lon]).addTo(map).bindPopup(a);addrInput.value='';};
-    function renderList(){listEl.innerHTML='';addresses.forEach((a,i)=>{const div=document.createElement('div');div.className='list-item';div.innerHTML=`<span>${a}</span><button onclick="del(${i})">🗑️</button>`;div.querySelector('span').onclick=()=>edit(i);listEl.appendChild(div);});}
-    window.del=i=>{addresses.splice(i,1);update();}; function edit(i){const na=prompt('العنوان الجديد:',addresses[i]);if(na){addresses[i]=na;update();}}
-    function update(){localStorage.setItem('addresses',JSON.stringify(addresses));renderList();}
-    routeBtn.onclick=()=>{if(!originCoords||markers.length===0)return; if(routingControl)map.removeControl(routingControl);const w=[L.latLng(originCoords),...markers.map(m=>L.latLng(m))];routingControl=L.Routing.control({waypoints:w,lineOptions:{styles:[{color:'#38bdf8',weight:6}]},routeWhileDragging:false}).addTo(map);};
-    addresses.forEach(a=>fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(a)}&limit=1`).then(r=>r.json()).then(d=>{if(d[0]){markers.push([+d[0].lat,+d[0].lon]);L.marker([+d[0].lat,+d[0].lon]).addTo(map).bindPopup(a);}}));
-    renderList();
+
+    const originInput=document.getElementById('originInput');
+    const originSug=document.getElementById('originSug');
+    const stopsList=document.getElementById('stopsList');
+    const stopInput=document.getElementById('stopInput');
+    const stopSug=document.getElementById('stopSug');
+    const addStopBtn=document.getElementById('addStopBtn');
+    const routeBtn=document.getElementById('routeBtn');
+
+    let originCoords,originMarker;
+    let stops=[],stopMarkers=[];
+    let routingControl;
+
+    // Origin suggestions and selection
+    originInput.onclick=()=>originInput.value='', originSug.style.display='block';
+    originInput.addEventListener('input',async()=>{
+      const q=originInput.value; if(q.length<2){originSug.style.display='none';return;} originSug.innerHTML=''; originSug.style.display='block';
+      const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`);
+      const d=await res.json(); d.forEach(p=>{const li=document.createElement('li');li.textContent=p.display_name;li.onclick=()=>{originInput.value=p.display_name; originSug.style.display='none'; originCoords=[+p.lat,+p.lon]; setOrigin();};originSug.appendChild(li);});
+    });
+    document.body.addEventListener('click',e=>{if(!originInput.contains(e.target))originSug.style.display='none'});
+    function setOrigin(){if(originMarker)map.removeLayer(originMarker);originMarker=L.marker(originCoords).addTo(map).bindPopup('البداية').openPopup();map.setView(originCoords,14);}    
+
+    // Stops suggestions
+    stopInput.addEventListener('input',async()=>{
+      const q=stopInput.value; if(q.length<2){stopSug.style.display='none';return;} stopSug.innerHTML=''; stopSug.style.display='block';
+      const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`);
+      const d=await res.json(); d.forEach(p=>{const li=document.createElement('li');li.textContent=p.display_name;li.onclick=()=>{stopInput.value=p.display_name; stopInput.dataset.lat=p.lat; stopInput.dataset.lon=p.lon; stopSug.style.display='none';};stopSug.appendChild(li);});
+    });
+    document.body.addEventListener('click',e=>{if(!stopInput.contains(e.target))stopSug.style.display='none'});
+
+    // Add stop
+    addStopBtn.onclick=()=>{
+      const name=stopInput.value.trim(); const lat=stopInput.dataset.lat; const lon=stopInput.dataset.lon;
+      if(!name||!lat) return;
+      stops.push({name,lat:+lat,lon:+lon}); updateStops(); stopInput.value='';
+    };
+    function updateStops(){ stopsList.innerHTML=''; stops.forEach((s,i)=>{ const div=document.createElement('div'); div.className='list-item'; div.innerHTML=`<span>${s.name}</span><button onclick="delStop(${i})">🗑️</button>`; div.querySelector('span').onclick=()=>editStop(i); stopsList.appendChild(div); });
+      // markers
+      stopMarkers.forEach(m=>map.removeLayer(m)); stopMarkers=[];
+      stops.forEach(s=>{const m=L.marker([s.lat,s.lon]).addTo(map).bindPopup(s.name); stopMarkers.push(m);});
+    }
+    window.delStop=i=>{stops.splice(i,1);updateStops();}; function editStop(i){const na=prompt('تعديل المحطة:',stops[i].name); if(na){stops[i].name=na; updateStops();}};
+
+    // Routing
+    routeBtn.onclick=()=>{ if(!originCoords||stops.length===0) return; if(routingControl)map.removeControl(routingControl);
+      const wpts=[L.latLng(originCoords),...stops.map(s=>L.latLng(s.lat,s.lon))]; routingControl=L.Routing.control({waypoints:wpts,lineOptions:{styles:[{color:'#38bdf8',weight:6}]},routeWhileDragging:false}).addTo(map);
+    };
+
   </script>
 </body>
 </html>

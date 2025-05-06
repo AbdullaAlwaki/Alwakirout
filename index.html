@@ -25,7 +25,7 @@
     #map {
       position: absolute;
       top: 0;
-      left: 56px; /* لترك مساحة للشريط الجانبي */
+      left: 0;
       right: 0;
       bottom: 0;
       z-index: 1;
@@ -44,7 +44,7 @@
       align-items: center;
       padding: 12px 0;
       z-index: 1001;
-      box-shadow: 2px 0 4px rgba(0,0,0,0.3);
+      box-shadow: -2px 0 4px rgba(0,0,0,0.3);
     }
 
     .left-bar button {
@@ -106,6 +106,13 @@
       border-radius: 3px;
       margin: 0 auto 10px;
       cursor: grab;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 1.2rem;
+      color: #fff;
     }
 
     .section {
@@ -258,6 +265,21 @@
       direction: rtl;
       text-align: right;
     }
+
+    /* أنماط العلامات مع الأسماء */
+    .leaflet-marker-icon .marker-label {
+      position: absolute;
+      top: -30px;
+      left: 12px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      font-size: 12px;
+      pointer-events: none;
+      font-weight: normal;
+    }
   </style>
 </head>
 <body>
@@ -317,7 +339,10 @@
   <script>
     // --- إعداد الخريطة ---
     const map = L.map('map').setView([0, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
 
     // --- معايير البحث ---
     const nominatimParams = 'format=json&addressdetails=1&accept-language=ar';
@@ -328,14 +353,15 @@
     const originInput = document.getElementById('originInput');
     const stopsList = document.getElementById('stopsList');
     const stopInput = document.getElementById('stopInput');
+    const directionsList = document.getElementById('directionsList');
     
     // --- حالة التطبيق ---
     let originCoords, originMarker, routingControl;
     let stops = JSON.parse(localStorage.getItem('stops') || '[]');
     let stopMarkers = [];
-    let originSug = document.getElementById('originSug');
-    let stopSug = document.getElementById('stopSug');
-
+    let detectedCountry = '';
+    let countryBoundingBox = null;
+    
     // --- عناصر شريط الأيقونات العلوي ---
     const addStopBtn = document.getElementById('addStopBtn');
     const saveRouteBtn = document.getElementById('saveRouteBtn');
@@ -367,103 +393,239 @@
       window.addEventListener('pointerup', onEnd);
     });
 
-    // --- عند تحميل الصفحة ---
-    window.onload = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          p => {
-            originCoords = [p.coords.latitude, p.coords.longitude];
-            originInput.value = 'موقعي الحالي';
-            setOrigin();
-            routeStops();
-          },
-          e => console.warn('خطأ في الحصول على الموقع:', e)
-        );
+    // --- وظيفة لتحديد موقع البلد بناءً على IP ---
+    async function detectCountryFromIP() {
+      try {
+        const response = await fetch('https://ipapi.co/json/');
+        const data = await response.json();
+        
+        if (data.country && data.region) {
+          detectedCountry = `${data.region}, ${data.country_name}`;
+          
+          // البحث عن إحداثيات البلد
+          const countryResponse = await fetch(
+            `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(data.region + ',' + data.country)}&limit=1`
+          );
+          const countryData = await countryResponse.json();
+          
+          if (countryData[0]) {
+            map.setView([countryData[0].lat, countryData[0].lon], 6); // عرض الخريطة للبلد
+            if (originInput) {
+              originInput.placeholder = `موقعك في ${data.region}, ${data.country_name}`;
+            }
+            
+            // حفظ حدود البلد إذا كانت متاحة
+            if (countryData[0].boundingbox) {
+              countryBoundingBox = [
+                [countryData[0].boundingbox[0], countryData[0].boundingbox[2]], // جنوب غرب
+                [countryData[0].boundingbox[1], countryData[0].boundingbox[3]]  // شمال شرق
+              ];
+            }
+          } else {
+            map.setView([0, 0], 2); // خريطة العالم كخيار افتراضي
+          }
+        } else {
+          map.setView([0, 0], 2); // خريطة العالم كخيار افتراضي
+        }
+      } catch (error) {
+        console.error('فشل في تحديد موقع IP:', error);
+        map.setView([0, 0], 2); // خريطة العالم كخيار افتراضي
       }
+    }
+
+    // --- وظيفة لتحديث اقتراحات البحث بناءً على البلد ---
+    async function updateSuggestionsWithCountry(inputElement, suggestionsElement, query) {
+      if (query.length < 2) {
+        suggestionsElement.style.display = 'none';
+        return;
+      }
+      
+      let finalQuery = query;
+      if (detectedCountry && !query.includes(detectedCountry)) {
+        finalQuery = `${query}, ${detectedCountry}`;
+      }
+      
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(finalQuery)}&limit=5`
+        );
+        const data = await response.json();
+        
+        suggestionsElement.innerHTML = '';
+        suggestionsElement.style.display = 'block';
+        
+        data.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item.display_name;
+          li.onclick = () => {
+            const label = prompt('اسم النقطة:', item.display_name) || item.display_name;
+            inputElement.value = label;
+            suggestionsElement.style.display = 'none';
+            
+            if (inputElement === originInput) {
+              originCoords = [+item.lat, +item.lon];
+              setOrigin();
+              routeStops();
+            } else {
+              stops.push({ name: label, lat: +item.lat, lon: +item.lon });
+              localStorage.setItem('stops', JSON.stringify(stops));
+              updateStops();
+              routeStops();
+            }
+          };
+          suggestionsElement.appendChild(li);
+        });
+      } catch (error) {
+        console.error('خطأ في البحث:', error);
+      }
+    }
+
+    // --- عند تحميل الصفحة ---
+    window.onload = async () => {
+      // تحديد البلد بناءً على IP
+      await detectCountryFromIP();
+      
+      // إضافة زر يدوي لتحديد الموقع (لـ Safari)
+      const locationBtn = document.createElement('button');
+      locationBtn.id = 'manualLocationBtn';
+      locationBtn.style = `
+        position: fixed;
+        left: 10px;
+        bottom: 70px;
+        z-index: 1000;
+        background: #10b981;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        cursor: pointer;
+        transition: background 0.3s;
+      `;
+      locationBtn.innerHTML = '📍';
+      locationBtn.title = 'استخدم موقعي الحالي';
+      document.body.appendChild(locationBtn);
+      
+      // ربط الزر بوظيفة تحديد الموقع
+      locationBtn.addEventListener('click', requestLocation);
+      
+      // تحديث قائمة المحطات
       updateStops();
     };
 
+    // --- وظيفة لطلب الموقع ---
+    function requestLocation() {
+      if (!navigator.geolocation) {
+        alert('الموقع غير مدعوم في هذا المتصفح');
+        return;
+      }
+      
+      originInput.value = 'جاري تحديد موقعك...';
+      
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          originCoords = [position.coords.latitude, position.coords.longitude];
+          originInput.value = 'موقعي الحالي';
+          setOrigin();
+          routeStops();
+        },
+        error => {
+          console.warn('خطأ في تحديد الموقع:', error);
+          originInput.value = 'موقعي الحالي';
+          alert('لم تتم الموافقة على الوصول للموقع أو حدث خطأ في تحديده');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    // --- تحديد نقطة البداية ---
     function setOrigin() {
       if (originMarker) map.removeLayer(originMarker);
-      originMarker = L.marker(originCoords)
-        .addTo(map)
-        .bindPopup('نقطة البداية')
-        .openPopup();
+      
+      originMarker = L.marker(originCoords).addTo(map);
+      
+      // إنشاء أيقونة مخصصة مع اسم
+      const customIcon = L.divIcon({
+        className: 'marker-label',
+        html: `<div class="leaflet-marker-icon">${originInput.value}</div>`,
+        iconSize: [100, 20],
+        iconAnchor: [50, 20],
+        popupAnchor: [0, -15]
+      });
+      
+      originMarker.setIcon(customIcon);
+      originMarker.bindPopup('نقطة البداية').openPopup();
+      
       map.setView(originCoords, 14);
     }
 
     // --- البحث عن نقطة البداية ---
-    originInput.addEventListener('input', async () => {
-      const q = originInput.value;
-      if (q.length < 2) {
-        originSug.style.display = 'none';
-        return;
-      }
-      
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=5`
-        );
-        const data = await response.json();
-        originSug.innerHTML = '';
-        originSug.style.display = 'block';
-        
-        data.forEach(p => {
-          const li = document.createElement('li');
-          li.textContent = p.display_name;
-          li.onclick = () => {
-            const label = prompt('اسم نقطة البداية:', p.display_name) || p.display_name;
-            originInput.value = label;
-            originCoords = [+p.lat, +p.lon];
-            originSug.style.display = 'none';
-            setOrigin();
-            routeStops();
-          };
-          originSug.appendChild(li);
-        });
-      } catch (error) {
-        alert('خطأ في البحث عن نقطة البداية');
-      }
+    originInput.addEventListener('input', () => {
+      updateSuggestionsWithCountry(originInput, originSug, originInput.value);
     });
 
     // --- البحث عن محطات ---
-    stopInput.addEventListener('input', async () => {
-      const q = stopInput.value;
-      if (q.length < 2) {
-        stopSug.style.display = 'none';
+    stopInput.addEventListener('input', () => {
+      updateSuggestionsWithCountry(stopInput, stopSug, stopInput.value);
+    });
+
+    // --- وظيفة تحديث الاقتراحات مع دعم البلد ---
+    async function updateSuggestionsWithCountry(inputElement, suggestionsElement, query) {
+      if (!suggestionsElement) {
+        suggestionsElement = document.getElementById(inputElement.id === 'originInput' ? 'originSug' : 'stopSug');
+      }
+      
+      if (query.length < 2) {
+        suggestionsElement.style.display = 'none';
         return;
+      }
+      
+      // إضافة اسم البلد إلى الاستعلام إذا لم يكن موجودًا
+      let finalQuery = query;
+      if (detectedCountry && !query.includes(detectedCountry)) {
+        finalQuery += `, ${detectedCountry}`;
       }
       
       try {
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=5`
+          `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(finalQuery)}&limit=5`
         );
         const data = await response.json();
-        stopSug.innerHTML = '';
-        stopSug.style.display = 'block';
+        suggestionsElement.innerHTML = '';
+        suggestionsElement.style.display = 'block';
         
         data.forEach(p => {
           const li = document.createElement('li');
           li.textContent = p.display_name;
           li.onclick = () => {
-            const name = prompt('اسم مخصص:', p.display_name) || p.display_name;
-            if (stops.some(s => s.name === name)) {
-              alert('المحطة موجودة بالفعل!');
-              return;
+            const label = prompt('اسم النقطة:', p.display_name) || p.display_name;
+            inputElement.value = label;
+            suggestionsElement.style.display = 'none';
+            
+            if (inputElement === originInput) {
+              originCoords = [+p.lat, +p.lon];
+              setOrigin();
+              routeStops();
+            } else {
+              stops.push({ name: label, lat: +p.lat, lon: +p.lon });
+              localStorage.setItem('stops', JSON.stringify(stops));
+              updateStops();
+              stopInput.value = '';
+              routeStops();
             }
-            stops.push({ name, lat: +p.lat, lon: +p.lon });
-            localStorage.setItem('stops', JSON.stringify(stops));
-            updateStops();
-            stopInput.value = '';
-            stopSug.style.display = 'none';
-            routeStops();
           };
-          stopSug.appendChild(li);
+          suggestionsElement.appendChild(li);
         });
       } catch (error) {
-        alert('خطأ في البحث عن محطات التوقف');
+        console.error('خطأ في البحث:', error);
       }
-    });
+    }
 
     // --- النقر على الخريطة لإضافة محطة ---
     map.on('click', async e => {
@@ -475,125 +637,32 @@
         const data = await response.json();
         const displayName = data.display_name || 'موقع غير معروف';
         const name = prompt('الرجاء إدخال اسم للمحطة:', displayName) || displayName;
-        stops.push({ name, lat, lon: lng });
+        
+        // التأكد من أن الموقع داخل حدود البلد
+        if (countryBoundingBox) {
+          const lat = parseFloat(data.lat);
+          const lon = parseFloat(data.lon);
+          if (lat < countryBoundingBox[0][0] || lat > countryBoundingBox[1][0] ||
+              lon < countryBoundingBox[0][1] || lon > countryBoundingBox[1][1]) {
+            if (!confirm('النقطة خارج نطاق بلدك. هل تريد إضافتها؟')) {
+              return;
+            }
+          }
+        }
+        
+        stops.push({ name, lat, lon });
         localStorage.setItem('stops', JSON.stringify(stops));
         updateStops();
         routeStops();
       } catch (error) {
         alert('خطأ في تحديد الموقع');
+        console.error('Error reverse geocoding:', error);
       }
     });
 
-    // --- تحديث قائمة المحطات ---
-    function updateStops() {
-      stopsList.innerHTML = '';
-      if (stopMarkers) {
-        stopMarkers.forEach(marker => map.removeLayer(marker));
-      }
-      stopMarkers = [];
-      
-      stops.forEach((s, i) => {
-        const div = document.createElement('div');
-        div.className = 'list-item';
-        div.draggable = true;
-        div.dataset.index = i;
-        div.innerHTML = `<span>${s.name}</span><button onclick="delStop(${i})">🗑️</button>`;
-        
-        div.addEventListener('dragstart', e => {
-          e.dataTransfer.setData('text', i);
-        });
-        
-        div.addEventListener('dragover', e => {
-          e.preventDefault();
-          div.classList.add('drag-over');
-        });
-        
-        div.addEventListener('dragleave', () => {
-          div.classList.remove('drag-over');
-        });
-        
-        div.addEventListener('drop', e => {
-          e.preventDefault();
-          div.classList.remove('drag-over');
-          const from = +e.dataTransfer.getData('text');
-          stops.splice(i, 0, stops.splice(from, 1)[0];
-          localStorage.setItem('stops', JSON.stringify(stops));
-          updateStops();
-          routeStops();
-        });
-        
-        div.querySelector('span').onclick = () => {
-          const newStopName = prompt('تعديل اسم المحطة:', s.name);
-          if (newStopName) {
-            stops[i].name = newStopName;
-            localStorage.setItem('stops', JSON.stringify(stops));
-            updateStops();
-            routeStops();
-          }
-        };
-        
-        stopsList.appendChild(div);
-        const marker = L.marker([s.lat, s.lon]).addTo(map).bindPopup(s.name);
-        stopMarkers.push(marker);
-      });
-    }
-
-    // --- رسم المسار فور توفر محطتين ---
-    function routeStops() {
-      if (!originCoords || stops.length < 1) {
-        if (routingControl) {
-          map.removeControl(routingControl);
-          routingControl = null;
-        }
-        document.getElementById('directionsList').innerHTML = '';
-        return;
-      }
-      
-      if (routingControl) {
-        map.removeControl(routingControl);
-        routingControl = null;
-      }
-      
-      const waypoints = [
-        L.latLng(originCoords),
-        ...stops.map(s => L.latLng(s.lat, s.lon))
-      ];
-      
-      if (waypoints.length < 2) return;
-      
-      routingControl = L.Routing.control({
-        waypoints: waypoints,
-        lineOptions: { styles: [{ color: '#38bdf8', weight: 5 }] },
-        routeWhileDragging: false,
-        show: false,
-        formatter: new L.Routing.Formatter({ language: 'ar', units: 'metric' })
-      }).addTo(map);
-      
-      routingControl.on('routesfound', e => {
-        const routes = e.routes;
-        const dirList = document.getElementById('directionsList');
-        dirList.innerHTML = '';
-        
-        if (!routes || routes.length === 0) {
-          dirList.innerHTML = '<li>لم يتم العثور على مسار</li>';
-          return;
-        }
-        
-        routes[0].instructions.forEach(inst => {
-          const li = document.createElement('li');
-          li.innerHTML = `<span class="desc">${inst.text}</span><span class="dist">${(inst.distance/1000).toFixed(1)} كم</span>`;
-          dirList.appendChild(li);
-        });
-      });
-      
-      routingControl.on('error', e => {
-        console.error('Routing error:', e.message);
-      });
-    }
-
     // --- إضافة محطة ---
     addStopBtn.addEventListener('click', () => {
-      if (!originCoords && !stops.length) {
+      if (!originCoords && stops.length === 0) {
         alert('يرجى تحديد نقطة البداية أولًا');
         return;
       }
@@ -606,10 +675,6 @@
         .then(data => {
           if (data[0]) {
             const name = prompt('اسم مخصص:', data[0].display_name) || data[0].display_name;
-            if (stops.some(s => s.name === name)) {
-              alert('المحطة موجودة بالفعل!');
-              return;
-            }
             stops.push({ name, lat: +data[0].lat, lon: +data[0].lon });
             localStorage.setItem('stops', JSON.stringify(stops));
             updateStops();
@@ -618,7 +683,7 @@
           }
         })
         .catch(error => {
-          alert('خطأ في إضافة المحطة');
+          alert('حدث خطأ أثناء البحث');
           console.error('Error adding stop:', error);
         });
     });
@@ -665,6 +730,32 @@
       }
     });
 
+    // --- تحميل المسار من الرابط ---
+    window.addEventListener('load', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('route')) {
+        try {
+          const routeData = JSON.parse(decodeURIComponent(urlParams.get('route')));
+          originCoords = routeData.origin;
+          originInput.value = 'مسار مشترك';
+          stops = routeData.stops.map((coords, index) => ({
+            name: `محطة ${index + 1}`,
+            lat: coords[0],
+            lon: coords[1]
+          }));
+          
+          localStorage.setItem('stops', JSON.stringify(stops));
+          updateStops();
+          setOrigin();
+          routeStops();
+          
+          window.history.replaceState({}, '', window.location.pathname);
+        } catch (e) {
+          console.error('فشل تحميل المسار من الرابط:', e);
+        }
+      }
+    });
+
     // --- تصدير GPX ---
     exportGPXBtn.addEventListener('click', () => {
       if (!originCoords && stops.length === 0) {
@@ -678,7 +769,10 @@
         name: s.name || `محطة ${i + 1}`
       }));
       
-      if (waypoints.length < 1) return alert('لا توجد نقاط لتصديرها');
+      if (waypoints.length < 1) {
+        alert('لا توجد نقاط لتصديرها');
+        return;
+      }
       
       let gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Alwaki Route" xmlns="http://www.topografix.com/GPX/1/1">
@@ -724,7 +818,7 @@
         
         const gpxNodes = xmlDoc.getElementsByTagName('wpt');
         if (gpxNodes.length === 0) {
-          alert('الملف غير يحتوي على نقاط مسار');
+          alert('الملف لا يحتوي على نقاط مسار');
           return;
         }
         
@@ -773,19 +867,117 @@
       localStorage.removeItem('stops');
       updateStops();
       if (routingControl) map.removeControl(routingControl);
-      document.getElementById('directionsList').innerHTML = '';
+      directionsList.innerHTML = '';
     });
 
-    // --- تحديث نقطة البداية ---
-    function setOrigin() {
-      if (originMarker) map.removeLayer(originMarker);
-      if (originCoords) {
-        originMarker = L.marker(originCoords)
-          .addTo(map)
-          .bindPopup('نقطة البداية')
-          .openPopup();
-        map.setView(originCoords, 14);
+    // --- تحديث قائمة المحطات ---
+    function updateStops() {
+      stopsList.innerHTML = '';
+      if (stopMarkers) {
+        stopMarkers.forEach(marker => map.removeLayer(marker));
       }
+      stopMarkers = [];
+      
+      stops.forEach((s, i) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.draggable = true;
+        div.dataset.index = i;
+        div.innerHTML = `<span>${s.name}</span><button onclick="delStop(${i})">🗑️</button>`;
+        
+        div.addEventListener('dragstart', e => {
+          e.dataTransfer.setData('text', i);
+        });
+        
+        div.addEventListener('dragover', e => {
+          e.preventDefault();
+          div.classList.add('drag-over');
+        });
+        
+        div.addEventListener('dragleave', () => {
+          div.classList.remove('drag-over');
+        });
+        
+        div.addEventListener('drop', e => {
+          const from = +e.dataTransfer.getData('text');
+          stops.splice(i, 0, stops.splice(from, 1)[from]);
+          localStorage.setItem('stops', JSON.stringify(stops));
+          updateStops();
+          routeStops();
+        });
+        
+        div.querySelector('span').onclick = () => {
+          const newStopName = prompt('تعديل اسم المحطة:', s.name);
+          if (newStopName) {
+            stops[i].name = newStopName;
+            localStorage.setItem('stops', JSON.stringify(stops));
+            updateStops();
+            routeStops();
+          }
+        };
+        
+        stopsList.appendChild(div);
+        
+        // إنشاء علامة مخصصة مع اسم المحطة
+        const customIcon = L.divIcon({
+          className: 'marker-label',
+          html: `<div class="leaflet-marker-icon">${s.name}</div>`,
+          iconSize: [100, 20],
+          iconAnchor: [50, 20],
+          popupAnchor: [0, -15]
+        });
+        
+        const marker = L.marker([s.lat, s.lon], { icon: customIcon }).addTo(map);
+        marker.bindPopup(s.name);
+        stopMarkers.push(marker);
+      });
+    }
+
+    // --- رسم المسار ---
+    function routeStops() {
+      if (!originCoords || stops.length === 0) {
+        if (routingControl) {
+          map.removeControl(routingControl);
+          routingControl = null;
+        }
+        directionsList.innerHTML = '';
+        return;
+      }
+      
+      if (routingControl) {
+        map.removeControl(routingControl);
+        routingControl = null;
+      }
+      
+      const waypoints = [
+        L.latLng(originCoords),
+        ...stops.map(s => L.latLng(s.lat, s.lon))
+      ];
+      
+      if (waypoints.length < 2) return;
+      
+      routingControl = L.Routing.control({
+        waypoints: waypoints,
+        lineOptions: { styles: [{ color: '#38bdf8', weight: 5 }] },
+        routeWhileDragging: false,
+        show: false,
+        formatter: new L.Routing.Formatter({ language: 'ar', units: 'metric' })
+      }).addTo(map);
+      
+      routingControl.on('routesfound', e => {
+        directionsList.innerHTML = '';
+        
+        if (!e.routes || e.routes.length === 0) {
+          directionsList.innerHTML = '<li>لم يتم العثور على مسار</li>';
+          return;
+        }
+        
+        e.routes[0].instructions.forEach(inst => {
+          const li = document.createElement('li');
+          li.innerHTML = `<span class="desc">${inst.text}</span><span class="dist">${(inst.distance/1000).toFixed(1)} كم</span>`;
+          directionsList.appendChild(li);
+        });
+      });
     }
 
     // --- حذف محطة ---
@@ -796,33 +988,28 @@
       routeStops();
     };
 
-    // --- تحميل المسار من الرابط ---
-    window.addEventListener('load', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('route')) {
-        try {
-          const routeData = JSON.parse(decodeURIComponent(urlParams.get('route')));
-          originCoords = routeData.origin;
-          originInput.value = 'مسار مشترك';
-          stops = routeData.stops.map((coords, index) => ({
-            name: `محطة ${index + 1}`,
-            lat: coords[0],
-            lon: coords[1]
-          }));
-          
-          localStorage.setItem('stops', JSON.stringify(stops));
-          updateStops();
-          setOrigin();
-          routeStops();
-          
-          window.history.replaceState({}, '', window.location.pathname);
-        } catch (e) {
-          console.error('فشل تحميل المسار من الرابط:', e);
-        }
-      }
-    });
+    // --- تحديث نقطة البداية ---
+    function setOrigin() {
+      if (originMarker) map.removeLayer(originMarker);
+      
+      // إنشاء علامة مخصصة مع اسم نقطة البداية
+      const customIcon = L.divIcon({
+        className: 'marker-label',
+        html: `<div class="leaflet-marker-icon">نقطة البداية</div>`,
+        iconSize: [100, 20],
+        iconAnchor: [50, 20],
+        popupAnchor: [0, -15]
+      });
+      
+      originMarker = L.marker(originCoords, { icon: customIcon })
+        .addTo(map)
+        .bindPopup('نقطة البداية')
+        .openPopup();
+      
+      map.setView(originCoords, 14);
+    }
 
-    // --- تحديث القائمة عند بدء التطبيق ---
+    // --- تحميل المحطات ---
     updateStops();
   </script>
 </body>

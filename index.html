@@ -90,17 +90,11 @@
       overflow-y: auto;
       transform: translateY(60%);
       transition: transform 0.3s ease;
+      cursor: grab;
+      touch-action: none;
     }
     .bottom-sheet.open {
       transform: translateY(0);
-    }
-    .drag-handle {
-      width: 40px;
-      height: 5px;
-      background: #4b5563;
-      border-radius: 3px;
-      margin: 0 auto 10px;
-      cursor: grab;
     }
     .section {
       position: relative;
@@ -233,7 +227,6 @@
       direction: rtl;
       text-align: right;
     }
-
     /* أسلوب الأيقونات المخصصة */
     .custom-marker {
       background: #334155;
@@ -266,16 +259,12 @@
     <button id="clearRouteBtn" title="مسح"><i>🗑️</i></button>
     <div class="tooltip">مسح المسار</div>
   </div>
-
   <!-- الخريطة -->
   <div id="map"></div>
-
   <!-- نموذج إخفاء لتحميل ملف GPX -->
   <input type="file" id="gpxFileInput" accept=".gpx" style="display: none;">
-
   <!-- لوحة التحكم الجانبية -->
   <div class="bottom-sheet" id="sheet">
-    <div class="drag-handle" id="handle"></div>
     <!-- حقل نقطة البداية -->
     <div class="section suggestions">
       <input id="originInput" class="input-suggest" placeholder="نقطة البداية (اضغط للاختيار)">
@@ -294,7 +283,6 @@
       <ol id="directionsList"></ol>
     </div>
   </div>
-
   <script>
     // --- إعداد الخريطة ---
     const map = L.map('map').setView([0, 0], 2); // سنقوم بتحديث هذه الإحداثيات لاحقًا
@@ -308,7 +296,6 @@
 
     // --- عناصر الواجهة ---
     const sheet = document.getElementById('sheet');
-    const handle = document.getElementById('handle');
     const originInput = document.getElementById('originInput');
     const stopsList = document.getElementById('stopsList');
     const stopInput = document.getElementById('stopInput');
@@ -330,24 +317,37 @@
     const clearRouteBtn = document.getElementById('clearRouteBtn');
     const gpxFileInput = document.getElementById('gpxFileInput');
 
-    // --- سحب اللوحة ---
-    handle.addEventListener('pointerdown', e => {
+    // --- سحب اللوحة (البوتوم شيت ككل) ---
+    sheet.addEventListener('pointerdown', e => {
+      e.preventDefault(); // منع تحديد النص أثناء السحب
+
       let startY = e.clientY;
-      let startT = 60;
+      let startT = parseFloat(sheet.style.transform.replace('translateY(', '').replace('%)', '')) || 60;
       sheet.style.transition = 'none';
+
       const onDrag = e2 => {
-        let dy = (e2.clientY - startY)/window.innerHeight*100;
+        let dy = (e2.clientY - startY) / window.innerHeight * 100;
         let y = Math.min(Math.max(startT + dy, 0), 60);
         sheet.style.transform = `translateY(${y}%)`;
       };
+
       const onEnd = e2 => {
-        let dy = (e2.clientY - startY)/window.innerHeight*100;
+        let dy = (e2.clientY - startY) / window.innerHeight * 100;
         startT = Math.min(Math.max(startT + dy, 0), 60);
+
+        if (startT < 30) {
+          sheet.classList.add('open');
+          sheet.style.transform = `translateY(0%)`;
+        } else {
+          sheet.classList.remove('open');
+          sheet.style.transform = `translateY(60%)`;
+        }
+
         sheet.style.transition = 'transform .3s';
-        sheet.style.transform = `translateY(${startT}%)`;
         window.removeEventListener('pointermove', onDrag);
         window.removeEventListener('pointerup', onEnd);
       };
+
       window.addEventListener('pointermove', onDrag);
       window.addEventListener('pointerup', onEnd);
     });
@@ -433,7 +433,6 @@
         }
         const q = stopInput.value.trim();
         if (!q) return;
-
         fetch(`https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=1`)
           .then(response => response.json())
           .then(data => {
@@ -672,7 +671,6 @@
         }),
         formatter: new L.Routing.Formatter({ language: 'ar', units: 'metric' })
       }).addTo(map);
-
       routingControl.on('routesfound', e => {
         const routes = e.routes;
         const dirList = document.getElementById('directionsList');
@@ -690,7 +688,6 @@
           dirList.appendChild(li);
         });
       });
-
       routingControl.on('error', e => {
         console.error('Routing error:', e.message);
       });

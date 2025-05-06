@@ -6,7 +6,7 @@
   <title>Alwaki Route</title>
   <!-- مكتبة Leaflet للخرائط -->
   <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
   <!-- مكتبة للبحث الجغرافي -->
   <script src="https://unpkg.com/leaflet-control-geocoder/dist/leaflet-control-geocoder.min.js"></script>
@@ -91,7 +91,7 @@
       transform: translateY(60%);
       transition: transform 0.3s ease;
       cursor: grab;
-      touch-action: none;
+      touch-action: pan-y;
     }
     .bottom-sheet.open {
       transform: translateY(0);
@@ -319,19 +319,25 @@
 
     // --- سحب اللوحة (البوتوم شيت ككل) ---
     sheet.addEventListener('pointerdown', e => {
-      e.preventDefault(); // منع تحديد النص أثناء السحب
+      // تجاهل الضغط على العناصر المحددة (مثل الحقول النصية)
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
 
+      e.preventDefault();
       let startY = e.clientY;
       let startT = parseFloat(sheet.style.transform.replace('translateY(', '').replace('%)', '')) || 60;
       sheet.style.transition = 'none';
+      let isDragging = false;
 
       const onDrag = e2 => {
+        isDragging = true;
         let dy = (e2.clientY - startY) / window.innerHeight * 100;
         let y = Math.min(Math.max(startT + dy, 0), 60);
         sheet.style.transform = `translateY(${y}%)`;
       };
 
       const onEnd = e2 => {
+        if (!isDragging) return; // تجاهل الضغط العادي
+
         let dy = (e2.clientY - startY) / window.innerHeight * 100;
         startT = Math.min(Math.max(startT + dy, 0), 60);
 
@@ -383,6 +389,7 @@
           .bindPopup('نقطة البداية')
           .openPopup();
         map.setView(originCoords, 14);
+        routeStops(); // رسم المسار تلقائيًا عند تحديد نقطة البداية
       }
     }
 
@@ -427,7 +434,7 @@
 
       // --- إضافة محطة ---
       addStopBtn.addEventListener('click', () => {
-        if (!originCoords && !stops.length) {
+        if (!originCoords) {
           alert('يرجى تحديد نقطة البداية أولًا');
           return;
         }
@@ -645,7 +652,8 @@
 
     // --- رسم المسار فور توفر محطتين ---
     function routeStops() {
-      if (!originCoords || stops.length < 1) {
+      if (!originCoords) return; // لا رسم بدون نقطة بداية
+      if (stops.length === 0) {
         if (routingControl) {
           map.removeControl(routingControl);
           routingControl = null;

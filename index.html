@@ -24,47 +24,64 @@
 
     #map {
       position: absolute;
-      top: 56px; /* لترك مساحة لأيقونات الأعلى */
-      left: 0;
+      top: 0;
+      left: 56px; /* لترك مساحة للشريط الجانبي */
       right: 0;
       bottom: 0;
       z-index: 1;
     }
 
-    /* شريط الأيقونات العلوي */
-    .top-bar {
+    /* شريط الأيقونات الرأسي على اليسار */
+    .left-bar {
       position: fixed;
-      top: 0;
       left: 0;
-      right: 0;
-      height: 56px;
+      top: 0;
+      bottom: 0;
+      width: 56px;
       background: #1e293b;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      padding: 0 12px;
+      padding: 12px 0;
       z-index: 1001;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      box-shadow: 2px 0 4px rgba(0,0,0,0.3);
     }
 
-    .top-bar button {
+    .left-bar button {
       background: none;
       border: none;
       color: #fff;
-      font-size: 20px;
-      padding: 8px;
+      font-size: 24px;
+      padding: 10px;
       cursor: pointer;
-      margin: 0 4px;
+      margin: 4px 0;
     }
 
-    .top-bar button:hover {
+    .left-bar button:hover {
       background: #334155;
       border-radius: 8px;
     }
 
+    .left-bar .tooltip {
+      position: fixed;
+      left: 60px;
+      background: #334155;
+      padding: 6px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      font-size: 14px;
+    }
+
+    .left-bar button:hover + .tooltip {
+      opacity: 1;
+    }
+
     .bottom-sheet {
       position: fixed;
-      left: 0;
+      left: 60px;
       right: 0;
       bottom: 0;
       height: 65%;
@@ -244,13 +261,25 @@
   </style>
 </head>
 <body>
-  <!-- شريط الأيقونات العلوي -->
-  <div class="top-bar">
-    <button id="saveRouteBtn" title="حفظ المسار">💾</button>
-    <button id="importGPXBtn" title="استيراد GPX">📂</button>
-    <button id="shareRouteBtn" title="مشاركة">🔗</button>
-    <button id="exportGPXBtn" title="تصدير GPX">📁</button>
-    <button id="clearRouteBtn" title="مسح المسار">🗑️</button>
+  <!-- شريط الأيقونات الرأسي -->
+  <div class="left-bar">
+    <button id="addStopBtn" title="إضافة محطة"><i>➕</i></button>
+    <div class="tooltip">أضف محطة</div>
+    
+    <button id="saveRouteBtn" title="حفظ المسار"><i>💾</i></button>
+    <div class="tooltip">حفظ المسار</div>
+    
+    <button id="importGPXBtn" title="استيراد GPX"><i>📂</i></button>
+    <div class="tooltip">استيراد GPX</div>
+    
+    <button id="exportGPXBtn" title="تصدير GPX"><i>📁</i></button>
+    <div class="tooltip">تصدير GPX</div>
+    
+    <button id="shareRouteBtn" title="مشاركة"><i>🔗</i></button>
+    <div class="tooltip">مشاركة</div>
+    
+    <button id="clearRouteBtn" title="مسح"><i>🗑️</i></button>
+    <div class="tooltip">مسح المسار</div>
   </div>
   
   <!-- الخريطة -->
@@ -277,9 +306,6 @@
       <input id="stopInput" class="input-suggest" placeholder="ابحث عن محطة توقف أو عنوان كامل">
       <ul id="stopSug"></ul>
     </div>
-    
-    <!-- زر إضافة محطة -->
-    <button id="addStopBtn"><i>➕</i>أضف محطة/عنوان</button>
     
     <!-- خطوات الاتجاهات -->
     <div class="directions" id="directionsPanel">
@@ -311,10 +337,11 @@
     let stopSug = document.getElementById('stopSug');
 
     // --- عناصر شريط الأيقونات العلوي ---
+    const addStopBtn = document.getElementById('addStopBtn');
     const saveRouteBtn = document.getElementById('saveRouteBtn');
     const importGPXBtn = document.getElementById('importGPXBtn');
-    const shareRouteBtn = document.getElementById('shareRouteBtn');
     const exportGPXBtn = document.getElementById('exportGPXBtn');
+    const shareRouteBtn = document.getElementById('shareRouteBtn');
     const clearRouteBtn = document.getElementById('clearRouteBtn');
     const gpxFileInput = document.getElementById('gpxFileInput');
 
@@ -457,33 +484,6 @@
       }
     });
 
-    // --- إضافة محطة ---
-    document.getElementById('addStopBtn').onclick = async () => {
-      const q = stopInput.value.trim();
-      if (!q) return;
-      
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=1`
-        );
-        const data = await response.json();
-        if (data[0]) {
-          const name = prompt('اسم مخصص:', data[0].display_name) || data[0].display_name;
-          if (stops.some(s => s.name === name)) {
-            alert('المحطة موجودة بالفعل!');
-            return;
-          }
-          stops.push({ name, lat: +data[0].lat, lon: +data[0].lon });
-          localStorage.setItem('stops', JSON.stringify(stops));
-          updateStops();
-          stopInput.value = '';
-          routeStops();
-        }
-      } catch (error) {
-        alert('خطأ في إضافة المحطة');
-      }
-    };
-
     // --- تحديث قائمة المحطات ---
     function updateStops() {
       stopsList.innerHTML = '';
@@ -497,7 +497,7 @@
         div.className = 'list-item';
         div.draggable = true;
         div.dataset.index = i;
-        div.innerHTML = `<span>${s.name}</span><button>🗑️</button>`;
+        div.innerHTML = `<span>${s.name}</span><button onclick="delStop(${i})">🗑️</button>`;
         
         div.addEventListener('dragstart', e => {
           e.dataTransfer.setData('text', i);
@@ -516,7 +516,7 @@
           e.preventDefault();
           div.classList.remove('drag-over');
           const from = +e.dataTransfer.getData('text');
-          stops.splice(i, 0, stops.splice(from, 1)[0]);
+          stops.splice(i, 0, stops.splice(from, 1)[0];
           localStorage.setItem('stops', JSON.stringify(stops));
           updateStops();
           routeStops();
@@ -538,18 +538,16 @@
       });
     }
 
-    // --- حذف محطة ---
-    window.delStop = i => {
-      if (!confirm('هل تريد حذف هذه المحطة؟')) return;
-      stops.splice(i, 1);
-      localStorage.setItem('stops', JSON.stringify(stops));
-      updateStops();
-      routeStops();
-    };
-
-    // --- رسم المسار ---
+    // --- رسم المسار فور توفر محطتين ---
     function routeStops() {
-      if (!originCoords || stops.length === 0) return;
+      if (!originCoords || stops.length < 1) {
+        if (routingControl) {
+          map.removeControl(routingControl);
+          routingControl = null;
+        }
+        document.getElementById('directionsList').innerHTML = '';
+        return;
+      }
       
       if (routingControl) {
         map.removeControl(routingControl);
@@ -589,10 +587,41 @@
       });
       
       routingControl.on('error', e => {
-        alert('حدث خطأ أثناء حساب المسار');
         console.error('Routing error:', e.message);
       });
     }
+
+    // --- إضافة محطة ---
+    addStopBtn.addEventListener('click', () => {
+      if (!originCoords && !stops.length) {
+        alert('يرجى تحديد نقطة البداية أولًا');
+        return;
+      }
+      
+      const q = stopInput.value.trim();
+      if (!q) return;
+      
+      fetch(`https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=1`)
+        .then(response => response.json())
+        .then(data => {
+          if (data[0]) {
+            const name = prompt('اسم مخصص:', data[0].display_name) || data[0].display_name;
+            if (stops.some(s => s.name === name)) {
+              alert('المحطة موجودة بالفعل!');
+              return;
+            }
+            stops.push({ name, lat: +data[0].lat, lon: +data[0].lon });
+            localStorage.setItem('stops', JSON.stringify(stops));
+            updateStops();
+            stopInput.value = '';
+            routeStops();
+          }
+        })
+        .catch(error => {
+          alert('خطأ في إضافة المحطة');
+          console.error('Error adding stop:', error);
+        });
+    });
 
     // --- حفظ المسار ---
     saveRouteBtn.addEventListener('click', () => {
@@ -747,6 +776,26 @@
       document.getElementById('directionsList').innerHTML = '';
     });
 
+    // --- تحديث نقطة البداية ---
+    function setOrigin() {
+      if (originMarker) map.removeLayer(originMarker);
+      if (originCoords) {
+        originMarker = L.marker(originCoords)
+          .addTo(map)
+          .bindPopup('نقطة البداية')
+          .openPopup();
+        map.setView(originCoords, 14);
+      }
+    }
+
+    // --- حذف محطة ---
+    window.delStop = i => {
+      stops.splice(i, 1);
+      localStorage.setItem('stops', JSON.stringify(stops));
+      updateStops();
+      routeStops();
+    };
+
     // --- تحميل المسار من الرابط ---
     window.addEventListener('load', () => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -773,17 +822,8 @@
       }
     });
 
-    // --- تحديث نقطة البداية ---
-    function setOrigin() {
-      if (originMarker) map.removeLayer(originMarker);
-      if (originCoords) {
-        originMarker = L.marker(originCoords)
-          .addTo(map)
-          .bindPopup('نقطة البداية')
-          .openPopup();
-        map.setView(originCoords, 14);
-      }
-    }
+    // --- تحديث القائمة عند بدء التطبيق ---
+    updateStops();
   </script>
 </body>
 </html>

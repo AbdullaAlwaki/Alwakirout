@@ -9,9 +9,32 @@
   <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
-  <script src="https://unpkg.com/leaflet-control-geocoder/dist/leaflet-control-geocoder.min.js"></script>
+  
+  <!-- مكتبة الخطوط -->
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
   
   <style>
+    /* --- ألوان السمة --- */
+    :root {
+      --color-primary: #38bdf8;
+      --color-secondary: #10b981;
+      --color-danger: #ef4444;
+      --color-bg: #0f172a;
+      --color-surface: #1e293b;
+      --color-text: #fff;
+      --color-border: #334155;
+    }
+
+    [data-theme="light"] {
+      --color-bg: #ffffff;
+      --color-surface: #f1f5f9;
+      --color-text: #000000;
+      --color-border: #cbd5e1;
+      --color-primary: #0ea5e9;
+      --color-secondary: #10b981;
+      --color-danger: #ef4444;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -19,120 +42,119 @@
     }
 
     html, body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #0f172a;
-      color: #fff;
-      overflow: hidden;
       height: 100%;
+      width: 100%;
+      font-family: 'Tajawal', sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+      overflow: hidden;
+      direction: rtl;
     }
 
     #map {
       position: absolute;
       top: 0;
-      left: 56px; /* لترك مساحة للأيقونات الرأسية */
+      left: 0;
       right: 0;
       bottom: 0;
-      z-index: 1;
+      z-index: 0;
     }
 
-    /* شريط الأيقونات الرأسي على اليسار */
-    .left-bar {
+    /* --- شريط الأعلى --- */
+    .top-bar {
       position: fixed;
-      left: 0;
       top: 0;
-      bottom: 0;
-      width: 56px;
-      background: #1e293b;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: var(--color-surface);
       display: flex;
-      flex-direction: column;
       align-items: center;
-      padding: 12px 0;
-      z-index: 1001;
-      box-shadow: 2px 0 4px rgba(0,0,0,0.3);
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 1000;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
-    .left-bar button {
+    .top-bar h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .top-bar button {
       background: none;
       border: none;
-      color: #fff;
+      color: var(--color-text);
       font-size: 24px;
-      padding: 10px;
       cursor: pointer;
-      margin: 4px 0;
+      padding: 8px;
     }
 
-    .left-bar button:hover {
-      background: #334155;
-      border-radius: 8px;
-    }
-
-    .left-bar .tooltip {
-      position: fixed;
-      left: 60px;
-      background: #334155;
+    .top-bar .tooltip {
+      position: absolute;
+      top: 56px;
+      white-space: nowrap;
+      background: var(--color-border);
       padding: 6px 12px;
       border-radius: 6px;
-      white-space: nowrap;
       opacity: 0;
       transition: opacity 0.3s;
       pointer-events: none;
       font-size: 14px;
-      z-index: 1002;
+      z-index: 1001;
     }
 
-    .left-bar button:hover + .tooltip {
+    .top-bar button:hover + .tooltip,
+    .top-bar button:focus + .tooltip {
       opacity: 1;
     }
 
+    /* --- لوحة التحكم الجانبية --- */
     .bottom-sheet {
       position: fixed;
-      left: 60px;
+      left: 0;
       right: 0;
       bottom: 0;
-      height: 65%;
-      background: #1e293b;
+      height: 50%;
+      background: var(--color-surface);
       border-top-left-radius: 20px;
       border-top-right-radius: 20px;
-      padding: 15px;
-      z-index: 1000;
+      padding: 16px;
+      z-index: 1001;
       overflow-y: auto;
-      transform: translateY(60%);
+      transform: translateY(0%);
       transition: transform 0.3s ease;
-    }
-
-    .bottom-sheet.open {
-      transform: translateY(0);
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
     }
 
     .drag-handle {
       width: 40px;
       height: 5px;
-      background: #4b5563;
+      background: var(--color-border);
       border-radius: 3px;
-      margin: 0 auto 10px;
+      margin: 0 auto 12px;
       cursor: grab;
     }
 
     .section {
-      position: relative;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
 
     .input-suggest {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       border: none;
       border-radius: 8px;
       font-size: 1rem;
-      background: #334155;
-      color: #fff;
+      background: var(--color-border);
+      color: var(--color-text);
     }
 
     .suggestions ul {
       position: absolute;
-      bottom: calc(100% + 2px);
-      left: 0;
-      right: 0;
+      bottom: calc(100% + 4px);
+      left: 16px;
+      right: 16px;
       max-height: 140px;
       overflow-y: auto;
       background: #2a2a2a;
@@ -145,7 +167,7 @@
     }
 
     .suggestions ul li {
-      padding: 8px 12px;
+      padding: 10px 14px;
       cursor: pointer;
       color: #eee;
     }
@@ -154,55 +176,59 @@
       background: #555;
     }
 
+    /* --- قائمة المحطات --- */
+    .stops-container {
+      margin-bottom: 16px;
+    }
+
     .list {
       flex: 1;
       overflow-y: auto;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
 
     .list-item {
-      background: #2a2a2a;
-      padding: 8px;
+      background: var(--color-border);
+      padding: 12px;
       border-radius: 8px;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       cursor: grab;
-    }
-
-    .list-item.drag-over {
-      border: 2px dashed #10b981;
     }
 
     .list-item span {
       flex: 1;
       word-break: break-word;
-      color: #ddd;
+      color: var(--color-text);
     }
 
     .list-item button {
-      background: #ef4444;
+      background: var(--color-danger);
       border: none;
       border-radius: 6px;
-      padding: 6px;
+      padding: 8px;
       cursor: pointer;
-      color: #fff;
-      margin-right: 8px;
+      color: var(--color-text);
+      font-weight: bold;
     }
 
+    /* --- زر إضافة محطة --- */
     #addStopBtn {
       width: 100%;
-      padding: 12px;
-      background: #10b981;
-      color: #fff;
+      padding: 14px;
+      background: var(--color-secondary);
+      color: var(--color-text);
       border: none;
       border-radius: 8px;
       font-size: 1rem;
       cursor: pointer;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-weight: bold;
     }
 
     #addStopBtn:hover {
@@ -210,22 +236,24 @@
     }
 
     #addStopBtn i {
-      margin-left: 8px;
+      margin-left: 10px;
+      font-size: 20px;
     }
 
+    /* --- خطوات الاتجاهات --- */
     .directions {
       flex: 1;
       overflow-y: auto;
       background: #24303d;
       border-radius: 8px;
-      padding: 10px;
+      padding: 12px;
     }
 
     .directions h3 {
       font-size: 1rem;
       margin-bottom: 8px;
       text-align: center;
-      color: #fff;
+      color: var(--color-text);
     }
 
     .directions ol {
@@ -234,11 +262,12 @@
     }
 
     .directions li {
-      padding: 8px;
+      padding: 10px;
       background: #334155;
       border-radius: 6px;
       margin-bottom: 6px;
       display: flex;
+      justify-content: space-between;
       align-items: center;
     }
 
@@ -248,12 +277,12 @@
     }
 
     .directions li span.dist {
-      margin-left: 8px;
+      margin-left: 10px;
       color: #bbb;
-      font-size: 0.9rem;
       white-space: nowrap;
     }
 
+    /* --- أنماط Leaflet --- */
     .leaflet-popup-content {
       text-align: right;
       direction: rtl;
@@ -265,7 +294,14 @@
       text-align: right;
     }
 
-    /* نمط العلامات مع الأسماء */
+    /* --- أنماط الوضع النهاري --- */
+    [data-theme="light"] .leaflet-popup-content,
+    [data-theme="light"] .leaflet-control-container .leaflet-routing-container {
+      direction: ltr;
+      text-align: left;
+    }
+
+    /* --- علامات الخريطة --- */
     .leaflet-marker-label {
       position: absolute;
       bottom: 30px;
@@ -286,31 +322,32 @@
       text-overflow: ellipsis;
       direction: rtl;
     }
+
+    /* --- تعديلات للهواتف --- */
+    @media (min-width: 768px) {
+      .bottom-sheet {
+        height: 65%;
+        max-width: 500px;
+        left: 0;
+        right: 0;
+        margin: 0 auto;
+        border-radius: 20px;
+      }
+      
+      .leaflet-popup-content-wrapper,
+      .leaflet-popup-tip {
+        background: var(--color-surface);
+        color: var(--color-text);
+      }
+    }
   </style>
 </head>
-<body>
-  <!-- شريط الأيقونات الرأسي -->
-  <div class="left-bar">
-    <button id="locationBtn" title="الحصول على الموقع"><i>📍</i></button>
-    <div class="tooltip">الحصول على الموقع</div>
-    
-    <button id="addStopBtn" title="إضافة محطة"><i>➕</i></button>
-    <div class="tooltip">أضف محطة</div>
-    
-    <button id="saveRouteBtn" title="حفظ المسار"><i>💾</i></button>
-    <div class="tooltip">حفظ المسار</div>
-    
-    <button id="importGPXBtn" title="استيراد GPX"><i>📂</i></button>
-    <div class="tooltip">استيراد GPX</div>
-    
-    <button id="exportGPXBtn" title="تصدير GPX"><i>📁</i></button>
-    <div class="tooltip">تصدير GPX</div>
-    
-    <button id="shareRouteBtn" title="مشاركة"><i>🔗</i></button>
-    <div class="tooltip">مشاركة</div>
-    
-    <button id="clearRouteBtn" title="مسح"><i>🗑️</i></button>
-    <div class="tooltip">مسح المسار</div>
+<body data-theme="dark">
+  <!-- شريط الأعلى -->
+  <div class="top-bar">
+    <h1>الواكي روت</h1>
+    <button id="themeToggle" title="تبديل السمة">🌞</button>
+    <div class="tooltip">تبديل السمة</div>
   </div>
   
   <!-- الخريطة -->
@@ -330,13 +367,18 @@
     </div>
     
     <!-- قائمة المحطات -->
-    <div class="list" id="stopsList"></div>
+    <div class="stops-container" id="stopsContainer">
+      <div class="list" id="stopsList"></div>
+    </div>
     
     <!-- حقل البحث عن محطة -->
     <div class="section suggestions">
       <input id="stopInput" class="input-suggest" placeholder="ابحث عن محطة توقف أو عنوان كامل">
       <ul id="stopSug"></ul>
     </div>
+    
+    <!-- زر إضافة محطة -->
+    <button id="addStopBtn"><i>➕</i>أضف محطة/عنوان</button>
     
     <!-- خطوات الاتجاهات -->
     <div class="directions" id="directionsPanel">
@@ -346,9 +388,29 @@
   </div>
 
   <script>
+    // --- تفعيل السمة ---
+    function initializeTheme() {
+      const savedTheme = localStorage.getItem('app-theme') || 'dark';
+      document.body.setAttribute('data-theme', savedTheme);
+      document.getElementById('themeToggle').innerHTML = savedTheme === 'dark' ? '🌞' : '🌙';
+    }
+
+    // --- تبديل السمة ---
+    function toggleTheme() {
+      const currentTheme = document.body.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      
+      document.body.setAttribute('data-theme', newTheme);
+      localStorage.setItem('app-theme', newTheme);
+      document.getElementById('themeToggle').innerHTML = newTheme === 'dark' ? '🌞' : '🌙';
+    }
+
     // --- إعداد الخريطة ---
-    const map = L.map('map').setView([0, 0], 2); // سنقوم بتحديث هذه الإحداثيات لاحقًا
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    const map = L.map('map').setView([0, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
 
     // --- معايير البحث ---
     const nominatimParams = 'format=json&addressdetails=1&accept-language=ar';
@@ -359,168 +421,75 @@
     const originInput = document.getElementById('originInput');
     const stopsList = document.getElementById('stopsList');
     const stopInput = document.getElementById('stopInput');
+    const originSug = document.getElementById('originSug');
+    const stopSug = document.getElementById('stopSug');
     
     // --- حالة التطبيق ---
     let originCoords, originMarker, routingControl;
     let stops = JSON.parse(localStorage.getItem('stops') || '[]');
     let stopMarkers = [];
-    let originSug = document.getElementById('originSug');
-    let stopSug = document.getElementById('stopSug');
-
-    // --- عناصر شريط الأيقونات العلوي ---
-    const locationBtn = document.getElementById('locationBtn');
-    const addStopBtn = document.getElementById('addStopBtn');
-    const saveRouteBtn = document.getElementById('saveRouteBtn');
-    const importGPXBtn = document.getElementById('importGPXBtn');
-    const exportGPXBtn = document.getElementById('exportGPXBtn');
-    const shareRouteBtn = document.getElementById('shareRouteBtn');
-    const clearRouteBtn = document.getElementById('clearRouteBtn');
-    const gpxFileInput = document.getElementById('gpxFileInput');
-
-    // --- تحديد موقع البلد بناءً على IP ---
-    async function getCountryFromIP() {
-      try {
-        const response = await fetch('https://ipapi.co/json/');
-        const data = await response.json();
-        
-        if (data.country && data.region) {
-          return `${data.region},${data.country}`;
-        }
-        return '';
-      } catch (error) {
-        console.error('فشل في تحديد موقع IP:', error);
-        return '';
-      }
-    }
-
-    // --- إنشاء علامة مع اسم ---
-    function createLabelMarker(latlng, name) {
-      return L.marker(latlng, {
-        icon: L.divIcon({
-          className: 'leaflet-marker-label',
-          html: `<div>${name}</div>`,
-          iconSize: [100, 30],
-          iconAnchor: [50, 35],
-          popupAnchor: [0, -35]
-        })
-      });
-    }
-
-    // --- سحب اللوحة ---
-    handle.addEventListener('pointerdown', e => {
-      let startY = e.clientY;
-      let startT = 60;
-      sheet.style.transition = 'none';
-      const onDrag = e2 => {
-        let dy = (e2.clientY - startY) / window.innerHeight * 100;
-        let y = Math.min(Math.max(startT + dy, 0), 60);
-        sheet.style.transform = `translateY(${y}%)`;
-      };
-      const onEnd = e2 => {
-        let dy = (e2.clientY - startY) / window.innerHeight * 100;
-        startT = Math.min(Math.max(startT + dy, 0), 60);
-        sheet.style.transition = 'transform .3s';
-        sheet.style.transform = `translateY(${startT}%)`;
-        window.removeEventListener('pointermove', onDrag);
-        window.removeEventListener('pointerup', onEnd);
-      };
-      window.addEventListener('pointermove', onDrag);
-      window.addEventListener('pointerup', onEnd);
-    });
-
-    // --- تحديد موقع البلد بناءً على IP ---
-    async function setCountryFromIP() {
-      try {
-        const response = await fetch('https://ipapi.co/json/');
-        const data = await response.json();
-        
-        if (data.country && data.latitude && data.longitude) {
-          // عرض خريطة البلد بناءً على IP
-          map.setView([data.latitude, data.longitude], 6); // مستوى التكبير 6 يعرض البلد بالكامل
-          originInput.placeholder = `موقعك في ${data.region || data.country_name}`;
-          originCoords = [data.latitude, data.longitude];
-          setOrigin();
-          routeStops();
-        } else {
-          // إذا لم نتمكن من الحصول على موقع IP، نستخدم خريطة العالم
-          map.setView([0, 0], 2); // خريطة العالم
-          originInput.placeholder = 'نقطة البداية (اضغط للاختيار)';
-          originCoords = null;
-        }
-      } catch (error) {
-        console.error('فشل في تحديد موقع IP:', error);
-        map.setView([0, 0], 2); // خريطة العالم كخيار افتراضي
-        originCoords = null;
-      }
-    }
-
-    // --- تحديث نقطة البداية ---
-    function setOrigin() {
-      if (originMarker) map.removeLayer(originMarker);
-      if (originCoords) {
-        originMarker = createLabelMarker(originCoords, 'نقطة البداية');
-        originMarker.addTo(map);
-        map.setView(originCoords, 14);
-      }
-    }
 
     // --- عند تحميل الصفحة ---
-    window.onload = async () => {
-      // تحديد موقع البلد بناءً على IP
-      setCountryFromIP();
+    window.onload = () => {
+      // --- تفعيل السمة ---
+      initializeTheme();
       
-      // تفعيل الأزرار
-      setupButtonEvents();
-      
-      // تحديث قائمة المحطات
-      updateStops();
-    };
-
-    // --- تفعيل الأزرار ---
-    function setupButtonEvents() {
-      // زر تحديد الموقع
-      locationBtn.addEventListener('click', () => {
-        if (!navigator.geolocation) {
-          alert('الموقع غير مدعوم في هذا المتصفح');
-          return;
-        }
-        
-        originInput.value = 'جاري تحديد موقعي...';
-        
+      // --- إعداد الخريطة ---
+      if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          position => {
-            originCoords = [position.coords.latitude, position.coords.longitude];
+          p => {
+            originCoords = [p.coords.latitude, p.coords.longitude];
             originInput.value = 'موقعي الحالي';
             setOrigin();
             routeStops();
-            
-            // تحديث عرض الخريطة
-            map.setView(originCoords, 14);
           },
-          error => {
-            console.warn('خطأ في الحصول على الموقع:', error);
-            originInput.value = '';
-            originInput.placeholder = 'نقطة البداية (اضغط للاختيار)';
-            alert('لم تتم الموافقة على الوصول للموقع أو حدث خطأ في تحديده');
-            
-            // الحفاظ على عرض البلد بناءً على IP
-            setCountryFromIP();
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-          }
+          e => console.warn('خطأ في الحصول على الموقع:', e)
         );
-      });
+      }
+      
+      updateStops();
+      
+      // --- ربط أزرار التحكم ---
+      setupButtonEvents();
+      
+      // --- تفعيل سحب اللوحة ---
+      setupBottomSheet();
+    };
 
-      // --- إضافة محطة ---
-      addStopBtn.addEventListener('click', () => {
-        if (!originCoords && !stops.length) {
-          alert('يرجى تحديد نقطة البداية أولًا');
-          return;
-        }
+    // --- سحب اللوحة الجانبية ---
+    function setupBottomSheet() {
+      handle.addEventListener('pointerdown', e => {
+        let startY = e.clientY;
+        let startT = 0;
+        sheet.style.transition = 'none';
         
+        const onDrag = e2 => {
+          let dy = (e2.clientY - startY) / window.innerHeight * 100;
+          let y = Math.min(Math.max(startT + dy, 0), 60);
+          sheet.style.transform = `translateY(${y}%)`;
+        };
+        
+        const onEnd = e2 => {
+          let dy = (e2.clientY - startY) / window.innerHeight * 100;
+          startT = Math.min(Math.max(startT + dy, 0), 60);
+          sheet.style.transition = 'transform .3s';
+          sheet.style.transform = `translateY(${startT}%)`;
+          window.removeEventListener('pointermove', onDrag);
+          window.removeEventListener('pointerup', onEnd);
+        };
+        
+        window.addEventListener('pointermove', onDrag);
+        window.addEventListener('pointerup', onEnd);
+      });
+    }
+
+    // --- تفعيل الأزرار ---
+    function setupButtonEvents() {
+      // --- تبديل السمة ---
+      document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+      
+      // --- إضافة محطة ---
+      document.getElementById('addStopBtn').addEventListener('click', () => {
         const q = stopInput.value.trim();
         if (!q) return;
         
@@ -546,160 +515,45 @@
           });
       });
 
-      // --- حفظ المسار ---
-      saveRouteBtn.addEventListener('click', () => {
-        if (stops.length === 0 && !originCoords) {
-          alert('لا يوجد مسار لحفظه');
-          return;
-        }
-        
-        const name = prompt('أدخل اسم المسار:');
-        if (!name) return;
-        
-        const saved = JSON.parse(localStorage.getItem('savedRoutes') || '[]');
-        saved.push({ name, origin: originCoords, stops });
-        localStorage.setItem('savedRoutes', JSON.stringify(saved));
-        alert('تم حفظ المسار');
-      });
-
-      // --- مشاركة المسار ---
-      shareRouteBtn.addEventListener('click', () => {
-        if (!originCoords || stops.length === 0) {
-          alert('لا يوجد مسار لمشاركته');
-          return;
-        }
-        
-        const routeData = {
-          origin: originCoords,
-          stops: stops.map(s => [s.lat, s.lon])
-        };
-        
-        const encoded = encodeURIComponent(JSON.stringify(routeData));
-        const url = `${window.location.href.split('?')[0]}?route=${encoded}`;
-        
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(url).then(() => {
-            alert('تم نسخ الرابط للحافظة! يمكنك مشاركته الآن.');
-          }).catch(() => {
-            prompt('يرجى نسخ الرابط أدناه:', url);
-          });
-        } else {
-          prompt('يرجى نسخ الرابط أدناه:', url);
+      // --- النقر على الخريطة لإضافة محطة ---
+      map.on('click', async e => {
+        const { lat, lng } = e.latlng;
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?${nominatimParams}&lat=${lat}&lon=${lng}`
+          );
+          const data = await response.json();
+          const displayName = data.display_name || 'موقع غير معروف';
+          const name = prompt('الرجاء إدخال اسم للمحطة:', displayName) || displayName;
+          stops.push({ name, lat, lon: lng });
+          localStorage.setItem('stops', JSON.stringify(stops));
+          updateStops();
+          routeStops();
+        } catch (error) {
+          console.error('خطأ في تحديد الموقع:', error);
+          alert('فشل تحديد الموقع');
         }
       });
+    }
 
-      // --- تصدير GPX ---
-      exportGPXBtn.addEventListener('click', () => {
-        if (!originCoords && stops.length === 0) {
-          alert('لا يوجد مسار لتصديره');
-          return;
-        }
-        
-        const waypoints = stops.map((s, i) => ({
-          lat: s.lat,
-          lon: s.lon,
-          name: s.name || `محطة ${i + 1}`
-        }));
-        
-        if (waypoints.length < 1) return alert('لا توجد نقاط لتصديرها');
-        
-        let gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Alwaki Route" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata>
-    <name>مسار من Alwaki Route</name>
-    <desc>تم إنشاء المسار باستخدام Alwaki Route</desc>
-    <time>${new Date().toISOString()}</time>
-  </metadata>`;
-        
-        waypoints.forEach(w => {
-          gpx += `<wpt lat="${w.lat}" lon="${w.lon}">
-  <name>${w.name}</name>
-  <desc>نقطة من Alwaki Route</desc>
-</wpt>`;
-        });
-        
-        gpx += `</gpx>`;
-        
-        const blob = new Blob([gpx], { type: 'application/gpx+xml' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `alwaki-route-${Date.now()}.gpx`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      });
+    // --- تحديد نقطة البداية ---
+    function setOrigin() {
+      if (originMarker) map.removeLayer(originMarker);
+      originMarker = createLabelMarker(originCoords, 'نقطة البداية');
+      originMarker.addTo(map);
+      map.setView(originCoords, 14);
+    }
 
-      // --- استيراد GPX ---
-      importGPXBtn.addEventListener('click', () => {
-        gpxFileInput.click();
-      });
-
-      gpxFileInput.addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = () => {
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(reader.result, "text/xml");
-          
-          const gpxNodes = xmlDoc.getElementsByTagName('wpt');
-          if (gpxNodes.length === 0) {
-            alert('الملف غير يحتوي على نقاط مسار');
-            return;
-          }
-          
-          stops = [];
-          for (let i = 0; i < gpxNodes.length; i++) {
-            const node = gpxNodes[i];
-            const lat = parseFloat(node.getAttribute('lat'));
-            const lon = parseFloat(node.getAttribute('lon'));
-            const nameElement = node.getElementsByTagName('name')[0];
-            const name = nameElement ? nameElement.textContent : `محطة ${i + 1}`;
-            
-            if (!isNaN(lat) && !isNaN(lon)) {
-              stops.push({ name, lat, lon });
-            }
-          }
-          
-          if (stops.length > 0) {
-            localStorage.setItem('stops', JSON.stringify(stops));
-            updateStops();
-            routeStops();
-            alert(`تم استيراد ${stops.length} نقطة بنجاح`);
-          } else {
-            alert('فشل قراءة النقاط من ملف GPX');
-          }
-        };
-        
-        reader.onerror = () => {
-          alert('خطأ في قراءة ملف GPX');
-        };
-        
-        reader.readAsText(file);
-      });
-
-      // --- مسح المسار ---
-      clearRouteBtn.addEventListener('click', () => {
-        if (!confirm('هل تريد مسح كل المحطات والنقطة البداية؟')) return;
-        
-        stops = [];
-        originCoords = null;
-        originInput.value = '';
-        if (originMarker) {
-          map.removeLayer(originMarker);
-          originMarker = null;
-        }
-        
-        localStorage.removeItem('stops');
-        updateStops();
-        if (routingControl) map.removeControl(routingControl);
-        document.getElementById('directionsList').innerHTML = '';
-        
-        // إعادة تعيين الخريطة إلى خريطة البلد
-        setCountryFromIP();
+    // --- إنشاء علامة مع اسم ---
+    function createLabelMarker(latlng, name) {
+      return L.marker(latlng, {
+        icon: L.divIcon({
+          className: 'leaflet-marker-label',
+          html: `<div>${name}</div>`,
+          iconSize: [100, 30],
+          iconAnchor: [50, 35],
+          popupAnchor: [0, -35]
+        })
       });
     }
 
@@ -718,6 +572,7 @@
         div.dataset.index = i;
         div.innerHTML = `<span>${s.name}</span><button onclick="delStop(${i})">🗑️</button>`;
         
+        // --- سحب المحطات ---
         div.addEventListener('dragstart', e => {
           e.dataTransfer.setData('text', i);
         });
@@ -735,12 +590,13 @@
           e.preventDefault();
           div.classList.remove('drag-over');
           const from = +e.dataTransfer.getData('text');
-          stops.splice(i, 0, stops.splice(from, 1)[0];
+          stops.splice(i, 0, stops.splice(from, 1)[0]);
           localStorage.setItem('stops', JSON.stringify(stops));
           updateStops();
           routeStops();
         });
         
+        // --- تعديل اسم المحطة ---
         div.querySelector('span').onclick = () => {
           const newStopName = prompt('تعديل اسم المحطة:', s.name);
           if (newStopName) {
@@ -758,7 +614,7 @@
       });
     }
 
-    // --- رسم المسار فور توفر نقطة البداية ومحطة واحدة ---
+    // --- رسم المسار ---
     function routeStops() {
       if (!originCoords || stops.length === 0) {
         if (routingControl) {
@@ -778,8 +634,6 @@
         L.latLng(originCoords),
         ...stops.map(s => L.latLng(s.lat, s.lon))
       ];
-      
-      if (waypoints.length < 2) return;
       
       routingControl = L.Routing.control({
         waypoints: waypoints,
@@ -853,13 +707,9 @@
         return;
       }
       
-      // تحديد موقع البلد بناءً على IP
-      const countrySuggestion = await getCountryFromIP();
-      
       try {
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=5` +
-          (countrySuggestion ? `&country_codes=${countrySuggestion.split(',')[1]}` : '')
+          `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=5`
         );
         const data = await response.json();
         stopSug.innerHTML = '';
@@ -888,27 +738,16 @@
       }
     });
 
-    // --- النقر على الخريطة لإضافة محطة ---
-    map.on('click', async e => {
-      const { lat, lng } = e.latlng;
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?${nominatimParams}&lat=${lat}&lon=${lng}`
-        );
-        const data = await response.json();
-        const displayName = data.display_name || 'موقع غير معروف';
-        const name = prompt('الرجاء إدخال اسم للمحطة:', displayName) || displayName;
-        stops.push({ name, lat, lon });
-        localStorage.setItem('stops', JSON.stringify(stops));
-        updateStops();
-        routeStops();
-      } catch (error) {
-        console.error('خطأ في تحديد الموقع:', error);
-        alert('خطأ في تحديد الموقع');
-      }
-    });
+    // --- حذف محطة ---
+    window.delStop = i => {
+      if (!confirm('هل تريد حذف هذه المحطة؟')) return;
+      stops.splice(i, 1);
+      localStorage.setItem('stops', JSON.stringify(stops));
+      updateStops();
+      routeStops();
+    };
 
-    // --- تحديث نقطة البداية ---
+    // --- تفعيل وظائف الخريطة ---
     function setOrigin() {
       if (originMarker) map.removeLayer(originMarker);
       originMarker = createLabelMarker(originCoords, 'نقطة البداية');
@@ -916,78 +755,105 @@
       map.setView(originCoords, 14);
     }
 
-    // --- إنشاء علامة مع اسم ---
-    function createLabelMarker(latlng, name) {
-      return L.marker(latlng, {
-        icon: L.divIcon({
-          className: 'leaflet-marker-label',
-          html: `<div>${name}</div>`,
-          iconSize: [100, 30],
-          iconAnchor: [50, 35],
-          popupAnchor: [0, -35]
-        })
+    // --- تفعيل الخريطة ---
+    const map = L.map('map').setView([0, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // --- تحديث قائمة المحطات ---
+    function updateStops() {
+      stopsList.innerHTML = '';
+      if (stopMarkers) {
+        stopMarkers.forEach(marker => map.removeLayer(marker));
+      }
+      stopMarkers = [];
+      
+      stops.forEach((s, i) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.draggable = true;
+        div.dataset.index = i;
+        div.innerHTML = `<span>${s.name}</span><button onclick="delStop(${i})">🗑️</button>`;
+        
+        // --- سحب المحطات ---
+        div.addEventListener('dragstart', e => {
+          e.dataTransfer.setData('text', i);
+        });
+        
+        div.addEventListener('dragover', e => {
+          e.preventDefault();
+          div.classList.add('drag-over');
+        });
+        
+        div.addEventListener('dragleave', () => {
+          div.classList.remove('drag-over');
+        });
+        
+        div.addEventListener('drop', e => {
+          e.preventDefault();
+          div.classList.remove('drag-over');
+          const from = +e.dataTransfer.getData('text');
+          stops.splice(i, 0, stops.splice(from, 1)[0]);
+          localStorage.setItem('stops', JSON.stringify(stops));
+          updateStops();
+          routeStops();
+        });
+        
+        stopsList.appendChild(div);
+        const marker = createLabelMarker([s.lat, s.lon], s.name);
+        marker.addTo(map);
+        stopMarkers.push(marker);
       });
     }
 
-    // --- تحميل المسار من الرابط ---
-    window.addEventListener('load', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('route')) {
-        try {
-          const routeData = JSON.parse(decodeURIComponent(urlParams.get('route')));
-          originCoords = routeData.origin;
-          originInput.value = 'مسار مشترك';
-          stops = routeData.stops.map((coords, index) => ({
-            name: `محطة ${index + 1}`,
-            lat: coords[0],
-            lon: coords[1]
-          }));
-          
-          localStorage.setItem('stops', JSON.stringify(stops));
-          updateStops();
-          setOrigin();
-          routeStops();
-          
-          window.history.replaceState({}, '', window.location.pathname);
-        } catch (e) {
-          console.error('فشل تحميل المسار من الرابط:', e);
+    // --- رسم المسار ---
+    function routeStops() {
+      if (!originCoords || stops.length === 0) {
+        if (routingControl) {
+          map.removeControl(routingControl);
+          routingControl = null;
         }
+        document.getElementById('directionsList').innerHTML = '';
+        return;
       }
-    });
-
-    // --- تحميل المسار من الرابط ---
-    window.addEventListener('load', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('route')) {
-        try {
-          const routeData = JSON.parse(decodeURIComponent(urlParams.get('route')));
-          originCoords = routeData.origin;
-          originInput.value = 'مسار مشترك';
-          stops = routeData.stops.map((coords, index) => ({
-            name: `محطة ${index + 1}`,
-            lat: coords[0],
-            lon: coords[1]
-          }));
-          
-          localStorage.setItem('stops', JSON.stringify(stops));
-          updateStops();
-          setOrigin();
-          routeStops();
-          
-          window.history.replaceState({}, '', window.location.pathname);
-        } catch (e) {
-          console.error('فشل تحميل المسار من الرابط:', e);
+      
+      if (routingControl) {
+        map.removeControl(routingControl);
+        routingControl = null;
+      }
+      
+      const waypoints = [
+        L.latLng(originCoords),
+        ...stops.map(s => L.latLng(s.lat, s.lon))
+      ];
+      
+      routingControl = L.Routing.control({
+        waypoints: waypoints,
+        lineOptions: { styles: [{ color: '#38bdf8', weight: 5 }] },
+        routeWhileDragging: false,
+        show: false,
+        formatter: new L.Routing.Formatter({ language: 'ar', units: 'metric' })
+      }).addTo(map);
+      
+      routingControl.on('routesfound', e => {
+        const routes = e.routes;
+        const dirList = document.getElementById('directionsList');
+        dirList.innerHTML = '';
+        
+        if (!routes || routes.length === 0) {
+          dirList.innerHTML = '<li>لم يتم العثور على مسار</li>';
+          return;
         }
-      }
-    });
-
-    // --- حذف محطة ---
-    window.delStop = i => {
-      stops.splice(i, 1);
-      localStorage.setItem('stops', JSON.stringify(stops));
-      updateStops();
-      routeStops();
-    };
+        
+        routes[0].instructions.forEach(inst => {
+          const li = document.createElement('li');
+          li.innerHTML = `<span class="desc">${inst.text}</span><span class="dist">${(inst.distance/1000).toFixed(1)} كم</span>`;
+          dirList.appendChild(li);
+        });
+      });
+    }
   </script>
 </body>
 </html>

@@ -6,7 +6,6 @@
   <title>Alwaki Route</title>
   <!-- مكتبة Leaflet للخرائط -->
   <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
-  <link href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" rel="stylesheet">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
   <!-- مكتبة للبحث الجغرافي -->
@@ -96,11 +95,12 @@
       transform: translateY(0);
     }
     .drag-handle {
-      width: 40px;
-      height: 5px;
+      width: 60px;  /* بدل 40px */
+      height: 8px;  /* بدل 5px */
       background: #4b5563;
-      border-radius: 3px;
-      margin: 0 auto 10px;
+      border-radius: 4px;
+      margin: 0 auto 12px;
+      touch-action: pan-y;
       cursor: grab;
     }
     .section {
@@ -234,7 +234,6 @@
       direction: rtl;
       text-align: right;
     }
-
     /* أسلوب الأيقونات المخصصة */
     .custom-marker {
       background: #334155;
@@ -267,16 +266,15 @@
     <button id="clearRouteBtn" title="مسح"><i>🗑️</i></button>
     <div class="tooltip">مسح المسار</div>
   </div>
-
   <!-- الخريطة -->
   <div id="map"></div>
-
   <!-- نموذج إخفاء لتحميل ملف GPX -->
   <input type="file" id="gpxFileInput" accept=".gpx" style="display: none;">
-
   <!-- لوحة التحكم الجانبية -->
   <div class="bottom-sheet" id="sheet">
     <div class="drag-handle" id="handle"></div>
+    <!-- زر التحكم في الـ Bottom Sheet -->
+    <button id="toggleSheet" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#334155;border:none;border-radius:4px;padding:4px 8px;color:#fff;cursor:pointer;">≡</button>
     <!-- حقل نقطة البداية -->
     <div class="section suggestions">
       <input id="originInput" class="input-suggest" placeholder="نقطة البداية (اضغط للاختيار)">
@@ -295,7 +293,6 @@
       <ol id="directionsList"></ol>
     </div>
   </div>
-
   <script>
     // --- إعداد الخريطة ---
     const map = L.map('map').setView([0, 0], 2); // سنقوم بتحديث هذه الإحداثيات لاحقًا
@@ -303,10 +300,8 @@
       maxZoom: 19,
       attribution: '© OpenStreetMap'
     }).addTo(map);
-
     // --- معايير البحث ---
     const nominatimParams = 'format=json&addressdetails=1&accept-language=ar';
-
     // --- عناصر الواجهة ---
     const sheet = document.getElementById('sheet');
     const handle = document.getElementById('handle');
@@ -315,12 +310,10 @@
     const stopInput = document.getElementById('stopInput');
     const originSug = document.getElementById('originSug');
     const stopSug = document.getElementById('stopSug');
-
     // --- حالة التطبيق ---
     let originCoords, originMarker, routingControl;
     let stops = JSON.parse(localStorage.getItem('stops') || '[]');
     let stopMarkers = [];
-
     // --- عناصر شريط الأيقونات العلوي ---
     const locationBtn = document.getElementById('locationBtn');
     const addStopBtn = document.getElementById('addStopBtn');
@@ -330,7 +323,6 @@
     const shareRouteBtn = document.getElementById('shareRouteBtn');
     const clearRouteBtn = document.getElementById('clearRouteBtn');
     const gpxFileInput = document.getElementById('gpxFileInput');
-
     // --- سحب اللوحة ---
     handle.addEventListener('pointerdown', e => {
       let startY = e.clientY;
@@ -352,7 +344,6 @@
       window.addEventListener('pointermove', onDrag);
       window.addEventListener('pointerup', onEnd);
     });
-
     // --- تحديد موقع البلد بناءً على IP ---
     async function setCountryFromIP() {
       try {
@@ -375,7 +366,6 @@
         originCoords = null;
       }
     }
-
     // --- تحديث نقطة البداية ---
     function setOrigin() {
       if (originMarker) map.removeLayer(originMarker);
@@ -386,14 +376,12 @@
         map.setView(originCoords, 14);
       }
     }
-
     // --- عند تحميل الصفحة ---
     window.onload = () => {
       setCountryFromIP();
       updateStops();
       setupButtonEvents();
     };
-
     // --- تفعيل الأزرار ---
     function setupButtonEvents() {
       // زر تحديد الموقع
@@ -425,7 +413,6 @@
           }
         );
       });
-
       // --- إضافة محطة ---
       addStopBtn.addEventListener('click', () => {
         if (!originCoords && !stops.length) {
@@ -434,7 +421,6 @@
         }
         const q = stopInput.value.trim();
         if (!q) return;
-
         fetch(`https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=1`)
           .then(response => response.json())
           .then(data => {
@@ -456,7 +442,6 @@
             console.error('Error adding stop:', error);
           });
       });
-
       // --- حفظ المسار ---
       saveRouteBtn.addEventListener('click', () => {
         if (stops.length === 0 && !originCoords) {
@@ -470,7 +455,6 @@
         localStorage.setItem('savedRoutes', JSON.stringify(saved));
         alert('تم حفظ المسار');
       });
-
       // --- مشاركة المسار ---
       shareRouteBtn.addEventListener('click', () => {
         if (!originCoords || stops.length === 0) {
@@ -493,7 +477,6 @@
           prompt('يرجى نسخ الرابط أدناه:', url);
         }
       });
-
       // --- تصدير GPX ---
       exportGPXBtn.addEventListener('click', () => {
         if (!originCoords && stops.length === 0) {
@@ -530,7 +513,6 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       });
-
       // --- استيراد GPX ---
       importGPXBtn.addEventListener('click', () => {
         gpxFileInput.click();
@@ -572,7 +554,6 @@
         };
         reader.readAsText(file);
       });
-
       // --- مسح المسار ---
       clearRouteBtn.addEventListener('click', () => {
         if (!confirm('هل تريد مسح كل المحطات والنقطة البداية؟')) return;
@@ -590,7 +571,6 @@
         setCountryFromIP();
       });
     }
-
     // --- تحديث قائمة المحطات ---
     function updateStops() {
       stopsList.innerHTML = '';
@@ -644,7 +624,6 @@
         stopMarkers.push(marker);
       });
     }
-
     // --- رسم المسار فور توفر محطتين ---
     function routeStops() {
       if (!originCoords || stops.length < 1) {
@@ -664,16 +643,17 @@
         ...stops.map(s => L.latLng(s.lat, s.lon))
       ];
       if (waypoints.length < 2) return;
+      const router = new L.Routing.OSRMv1({
+        serviceUrl: 'https://router.project-osrm.org/route/v1',
+        profile: 'driving'
+      });
       routingControl = L.Routing.control({
         waypoints: waypoints,
-        lineOptions: { styles: [{ color: '#38bdf8', weight: 5 }] },
+        router: router,
+        lineOptions: { styles: [{ weight: 5 }] },
         showAlternatives: false,
-        router: L.Routing.OSRMv1({
-          serviceUrl: 'https://router.project-osrm.org/route/v1'
-        }),
         formatter: new L.Routing.Formatter({ language: 'ar', units: 'metric' })
       }).addTo(map);
-
       routingControl.on('routesfound', e => {
         const routes = e.routes;
         const dirList = document.getElementById('directionsList');
@@ -691,12 +671,11 @@
           dirList.appendChild(li);
         });
       });
-
-      routingControl.on('error', e => {
-        console.error('Routing error:', e.message);
+      routingControl.on('routingerror', err => {
+        console.error(err);
+        alert('عذراً، لا يمكن حساب المسار حالياً.');
       });
     }
-
     // --- البحث عن نقطة البداية ---
     originInput.addEventListener('input', async () => {
       const q = originInput.value;
@@ -728,7 +707,6 @@
         console.error('خطأ في البحث عن نقطة البداية:', error);
       }
     });
-
     // --- البحث عن محطات ---
     stopInput.addEventListener('input', async () => {
       const q = stopInput.value;
@@ -765,7 +743,6 @@
         console.error('خطأ في البحث عن محطات التوقف:', error);
       }
     });
-
     // --- حذف محطة ---
     window.delStop = i => {
       stops.splice(i, 1);
@@ -773,7 +750,6 @@
       updateStops();
       routeStops();
     };
-
     // --- تحميل المسار من الرابط ---
     window.addEventListener('load', () => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -797,6 +773,10 @@
         }
       }
     });
+    // --- إضافة الحدث لفتح وإغلاق الـ Bottom Sheet بواسطة الضغط على الـ handle ---
+    handle.addEventListener('click', () => sheet.classList.toggle('open'));
+    // --- إضافة الحدث لفتح وإغلاق الـ Bottom Sheet بواسطة الضغط على الزر ---
+    document.getElementById('toggleSheet').addEventListener('click', () => sheet.classList.toggle('open'));
   </script>
 </body>
 </html>

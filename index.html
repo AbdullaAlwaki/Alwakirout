@@ -95,13 +95,26 @@
       transform: translateY(0);
     }
     .drag-handle {
-      width: 60px;  /* بدل 40px */
-      height: 8px;  /* بدل 5px */
+      width: 60px; /* زيادة الحجم [[1]] */
+      height: 8px;
       background: #4b5563;
       border-radius: 4px;
       margin: 0 auto 12px;
       touch-action: pan-y;
       cursor: grab;
+    }
+    /* أضف زر التحكم في الـ Bottom Sheet */
+    #toggleSheet {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #334155;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      color: #fff;
+      cursor: pointer;
     }
     .section {
       position: relative;
@@ -274,7 +287,7 @@
   <div class="bottom-sheet" id="sheet">
     <div class="drag-handle" id="handle"></div>
     <!-- زر التحكم في الـ Bottom Sheet -->
-    <button id="toggleSheet" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#334155;border:none;border-radius:4px;padding:4px 8px;color:#fff;cursor:pointer;">≡</button>
+    <button id="toggleSheet">≡</button>
     <!-- حقل نقطة البداية -->
     <div class="section suggestions">
       <input id="originInput" class="input-suggest" placeholder="نقطة البداية (اضغط للاختيار)">
@@ -344,6 +357,11 @@
       window.addEventListener('pointermove', onDrag);
       window.addEventListener('pointerup', onEnd);
     });
+    // --- تفعيل زر التحكم في الـ Bottom Sheet ---
+    document.getElementById('toggleSheet').addEventListener('click', () => {
+      sheet.classList.toggle('open');
+    });
+    handle.addEventListener('click', () => sheet.classList.toggle('open'));
     // --- تحديد موقع البلد بناءً على IP ---
     async function setCountryFromIP() {
       try {
@@ -643,6 +661,7 @@
         ...stops.map(s => L.latLng(s.lat, s.lon))
       ];
       if (waypoints.length < 2) return;
+      // تصحيح إنشاء الروتير مع profile [[6]]
       const router = new L.Routing.OSRMv1({
         serviceUrl: 'https://router.project-osrm.org/route/v1',
         profile: 'driving'
@@ -650,7 +669,7 @@
       routingControl = L.Routing.control({
         waypoints: waypoints,
         router: router,
-        lineOptions: { styles: [{ weight: 5 }] },
+        lineOptions: { styles: [{ color: '#38bdf8', weight: 5 }] },
         showAlternatives: false,
         formatter: new L.Routing.Formatter({ language: 'ar', units: 'metric' })
       }).addTo(map);
@@ -773,10 +792,6 @@
         }
       }
     });
-    // --- إضافة الحدث لفتح وإغلاق الـ Bottom Sheet بواسطة الضغط على الـ handle ---
-    handle.addEventListener('click', () => sheet.classList.toggle('open'));
-    // --- إضافة الحدث لفتح وإغلاق الـ Bottom Sheet بواسطة الضغط على الزر ---
-    document.getElementById('toggleSheet').addEventListener('click', () => sheet.classList.toggle('open'));
   </script>
 </body>
 </html>

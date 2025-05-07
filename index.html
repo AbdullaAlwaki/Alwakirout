@@ -76,6 +76,7 @@
     .left-bar button:hover + .tooltip {
       opacity: 1;
     }
+    /* Bottom sheet */
     .bottom-sheet {
       position: fixed;
       left: 0px;
@@ -88,22 +89,23 @@
       padding: 15px;
       z-index: 1000;
       overflow-y: auto;
-      transform: translateY(60%);
+      transform: translateY(100%);
       transition: transform 0.3s ease;
     }
     .bottom-sheet.open {
       transform: translateY(0);
     }
+    /* Improved drag handle */
     .drag-handle {
-      width: 60px; /* Increased from 40px */
-      height: 8px; /* Increased from 5px */
+      width: 60px;  /* Increased from 40px */
+      height: 8px;  /* Increased from 5px */
       background: #4b5563;
-      border-radius: 3px;
+      border-radius: 4px;
       margin: 0 auto 12px;
       touch-action: pan-y;
       cursor: grab;
     }
-    /* Added styles for the new toggle button */
+    /* Toggle button for bottom sheet */
     #toggleSheet {
       position: absolute;
       top: 8px;
@@ -116,6 +118,19 @@
       color: #fff;
       cursor: pointer;
       z-index: 1003;
+      font-size: 1.2em;
+    }
+    /* Status indicator */
+    .status-indicator {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(0,0,0,0.5);
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 0.9rem;
+      display: none;
     }
     .section {
       position: relative;
@@ -263,7 +278,7 @@
   </style>
 </head>
 <body>
-  <!-- Vertical icon bar -->
+  <!-- Vertical Icon Bar -->
   <div class="left-bar">
     <button id="locationBtn" title="الحصول على الموقع"><i>📍</i></button>
     <div class="tooltip">الحصول على الموقع</div>
@@ -280,11 +295,14 @@
     <button id="clearRouteBtn" title="مسح"><i>🗑️</i></button>
     <div class="tooltip">مسح المسار</div>
   </div>
+  
   <!-- Map -->
   <div id="map"></div>
-  <!-- GPX File Upload Form -->
+  
+  <!-- GPX File Upload -->
   <input type="file" id="gpxFileInput" accept=".gpx" style="display: none;">
-  <!-- Side Panel -->
+  
+  <!-- Bottom Sheet -->
   <div class="bottom-sheet" id="sheet">
     <div class="drag-handle" id="handle"></div>
     <!-- Toggle Button -->
@@ -307,15 +325,18 @@
       <ol id="directionsList"></ol>
     </div>
   </div>
+  
+  <!-- Status Indicator -->
+  <div class="status-indicator" id="statusIndicator"></div>
+  
   <script>
     // --- Map Setup ---
-    const map = L.map('map').setView([0, 0], 2);
+    const map = L.map('map').setView([0, 0], 2); // Will be updated later
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
       maxZoom: 19,
       attribution: '© OpenStreetMap'
     }).addTo(map);
-    // --- Search Parameters ---
-    const nominatimParams = 'format=json&addressdetails=1&accept-language=ar';
+    
     // --- UI Elements ---
     const sheet = document.getElementById('sheet');
     const handle = document.getElementById('handle');
@@ -324,325 +345,67 @@
     const stopInput = document.getElementById('stopInput');
     const originSug = document.getElementById('originSug');
     const stopSug = document.getElementById('stopSug');
+    const statusIndicator = document.getElementById('statusIndicator');
+    
     // --- App State ---
     let originCoords, originMarker, routingControl;
     let stops = JSON.parse(localStorage.getItem('stops') || '[]');
     let stopMarkers = [];
-    // --- Top Icon Buttons ---
-    const locationBtn = document.getElementById('locationBtn');
-    const addStopBtn = document.getElementById('addStopBtn');
-    const saveRouteBtn = document.getElementById('saveRouteBtn');
-    const importGPXBtn = document.getElementById('importGPXBtn');
-    const exportGPXBtn = document.getElementById('exportGPXBtn');
-    const shareRouteBtn = document.getElementById('shareRouteBtn');
-    const clearRouteBtn = document.getElementById('clearRouteBtn');
-    const gpxFileInput = document.getElementById('gpxFileInput');
-    // --- Sheet Dragging ---
-    handle.addEventListener('pointerdown', e => {
-      let startY = e.clientY;
-      let startT = 60;
-      sheet.style.transition = 'none';
-      const onDrag = e2 => {
-        let dy = (e2.clientY - startY)/window.innerHeight*100;
-        let y = Math.min(Math.max(startT + dy, 0), 60);
-        sheet.style.transform = `translateY(${y}%)`;
-      };
-      const onEnd = e2 => {
-        let dy = (e2.clientY - startY)/window.innerHeight*100;
-        startT = Math.min(Math.max(startT + dy, 0), 60);
-        sheet.style.transition = 'transform .3s';
-        sheet.style.transform = `translateY(${startT}%)`;
-        window.removeEventListener('pointermove', onDrag);
-        window.removeEventListener('pointerup', onEnd);
-      };
-      window.addEventListener('pointermove', onDrag);
-      window.addEventListener('pointerup', onEnd);
-    });
-    // --- Click to Toggle Bottom Sheet ---
-    const toggleSheetButton = document.getElementById('toggleSheet');
-    handle.addEventListener('click', () => sheet.classList.toggle('open'));
-    toggleSheetButton.addEventListener('click', () => sheet.classList.toggle('open'));
-    // --- Get Country Based on IP ---
-    async function setCountryFromIP() {
-      try {
-        const response = await fetch('https://ipapi.co/json/');
-        const data = await response.json();
-        if (data.country && data.latitude && data.longitude) {
-          map.setView([data.latitude, data.longitude], 6);
-          originInput.placeholder = `موقعك في ${data.region || data.country_name}`;
-          originCoords = [data.latitude, data.longitude];
-          setOrigin();
-          routeStops();
-        } else {
-          map.setView([0, 0], 2);
-          originInput.placeholder = 'نقطة البداية (اضغط للاختيار)';
-          originCoords = null;
-        }
-      } catch (error) {
-        console.error('فشل في تحديد موقع IP:', error);
-        map.setView([0, 0], 2);
-        originCoords = null;
-      }
-    }
-    // --- Update Origin Marker ---
-    function setOrigin() {
-      if (originMarker) map.removeLayer(originMarker);
-      if (originCoords) {
-        originMarker = L.marker(originCoords).addTo(map)
-          .bindPopup('نقطة البداية')
-          .openPopup();
-        map.setView(originCoords, 14);
-      }
-    }
-    // --- Page Load ---
-    window.onload = () => {
-      setCountryFromIP();
-      updateStops();
-      setupButtonEvents();
-    };
-    // --- Button Events ---
-    function setupButtonEvents() {
-      // Location Button
-      locationBtn.addEventListener('click', () => {
-        if (!navigator.geolocation) {
-          alert('الموقع غير مدعوم في هذا المتصفح');
-          return;
-        }
-        originInput.value = 'جاري تحديد موقعي...';
-        navigator.geolocation.getCurrentPosition(
-          position => {
-            originCoords = [position.coords.latitude, position.coords.longitude];
-            originInput.value = 'موقعي الحالي';
-            setOrigin();
-            routeStops();
-            map.setView(originCoords, 14);
-          },
-          error => {
-            console.warn('خطأ في الحصول على الموقع:', error);
-            originInput.value = '';
-            originInput.placeholder = 'نقطة البداية (اضغط للاختيار)';
-            alert('لم تتم الموافقة على الوصول للموقع أو حدث خطأ في تحديده');
-            setCountryFromIP();
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-          }
-        );
-      });
-      // Add Stop Button
-      addStopBtn.addEventListener('click', () => {
-        if (!originCoords && stops.length < 1) {
-          alert('يرجى تحديد نقطة البداية أولًا');
-          return;
-        }
-        const q = stopInput.value.trim();
-        if (!q) return;
-        fetch(`https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=1`)
-          .then(response => response.json())
-          .then(data => {
-            if (data[0]) {
-              const name = prompt('اسم مخصص:', data[0].display_name) || data[0].display_name;
-              if (stops.some(s => s.name === name)) {
-                alert('المحطة موجودة بالفعل!');
-                return;
-              }
-              stops.push({ name, lat: +data[0].lat, lon: +data[0].lon });
-              localStorage.setItem('stops', JSON.stringify(stops));
-              updateStops();
-              stopInput.value = '';
-              routeStops();
-            }
-          })
-          .catch(error => {
-            alert('خطأ في إضافة المحطة');
-            console.error('Error adding stop:', error);
-          });
-      });
-      // Save Route Button
-      saveRouteBtn.addEventListener('click', () => {
-        if (stops.length === 0 && !originCoords) {
-          alert('لا يوجد مسار لحفظه');
-          return;
-        }
-        const name = prompt('أدخل اسم المسار:');
-        if (!name) return;
-        const saved = JSON.parse(localStorage.getItem('savedRoutes') || '[]');
-        saved.push({ name, origin: originCoords, stops });
-        localStorage.setItem('savedRoutes', JSON.stringify(saved));
-        alert('تم حفظ المسار');
-      });
-      // Share Route Button
-      shareRouteBtn.addEventListener('click', () => {
-        if (!originCoords || stops.length === 0) {
-          alert('لا يوجد مسار لمشاركته');
-          return;
-        }
-        const routeData = {
-          origin: originCoords,
-          stops: stops.map(s => [s.lat, s.lon])
+    
+    // --- Improved Slider/Bottom Sheet Functionality ---
+    function setupBottomSheet() {
+      // Enhanced drag functionality
+      handle.addEventListener('pointerdown', e => {
+        let startY = e.clientY;
+        let startT = 100;
+        
+        sheet.style.transition = 'none';
+        
+        const onDrag = e2 => {
+          let dy = (e2.clientY - startY)/window.innerHeight*100;
+          let y = Math.min(Math.max(startT + dy, 0), 100);
+          sheet.style.transform = `translateY(${y}%)`;
         };
-        const encoded = encodeURIComponent(JSON.stringify(routeData));
-        const url = `${window.location.href.split('?')[0]}?route=${encoded}`;
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(url).then(() => {
-            alert('تم نسخ الرابط للحافظة! يمكنك مشاركته الآن.');
-          }).catch(() => {
-            prompt('يرجى نسخ الرابط أدناه:', url);
-          });
-        } else {
-          prompt('يرجى نسخ الرابط أدناه:', url);
-        }
-      });
-      // Export GPX Button
-      exportGPXBtn.addEventListener('click', () => {
-        if (!originCoords && stops.length === 0) {
-          alert('لا يوجد مسار لتصديره');
-          return;
-        }
-        const waypoints = stops.map((s, i) => ({
-          lat: s.lat,
-          lon: s.lon,
-          name: s.name || `محطة ${i + 1}`
-        }));
-        if (waypoints.length < 1) return alert('لا توجد نقاط لتصديرها');
-        let gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Alwaki Route" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata>
-    <name>مسار من Alwaki Route</name>
-    <desc>تم إنشاء المسار باستخدام Alwaki Route</desc>
-    <time>${new Date().toISOString()}</time>
-  </metadata>`;
-        waypoints.forEach(w => {
-          gpx += `<wpt lat="${w.lat}" lon="${w.lon}">
-  <name>${w.name}</name>
-  <desc>نقطة من Alwaki Route</desc>
-</wpt>`;
-        });
-        gpx += `</gpx>`;
-        const blob = new Blob([gpx], { type: 'application/gpx+xml' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `alwaki-route-${Date.now()}.gpx`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      });
-      // Import GPX Button
-      importGPXBtn.addEventListener('click', () => {
-        gpxFileInput.click();
-      });
-      gpxFileInput.addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(reader.result, "text/xml");
-          const gpxNodes = xmlDoc.getElementsByTagName('wpt');
-          if (gpxNodes.length === 0) {
-            alert('الملف غير يحتوي على نقاط مسار');
-            return;
-          }
-          stops = [];
-          for (let i = 0; i < gpxNodes.length; i++) {
-            const node = gpxNodes[i];
-            const lat = parseFloat(node.getAttribute('lat'));
-            const lon = parseFloat(node.getAttribute('lon'));
-            const nameElement = node.getElementsByTagName('name')[0];
-            const name = nameElement ? nameElement.textContent : `محطة ${i + 1}`;
-            if (!isNaN(lat) && !isNaN(lon)) {
-              stops.push({ name, lat, lon });
-            }
-          }
-          if (stops.length > 0) {
-            localStorage.setItem('stops', JSON.stringify(stops));
-            updateStops();
-            routeStops();
-            alert(`تم استيراد ${stops.length} نقطة بنجاح`);
+        
+        const onEnd = e2 => {
+          let dy = (e2.clientY - startY)/window.innerHeight*100;
+          startT = Math.min(Math.max(startT + dy, 0), 100);
+          
+          sheet.style.transition = 'transform .3s';
+          sheet.style.transform = `translateY(${startT}%)`;
+          
+          // Update open state based on position
+          if (startT < 50) {
+            sheet.classList.add('open');
           } else {
-            alert('فشل قراءة النقاط من ملف GPX');
+            sheet.classList.remove('open');
           }
+          
+          window.removeEventListener('pointermove', onDrag);
+          window.removeEventListener('pointerup', onEnd);
         };
-        reader.onerror = () => {
-          alert('خطأ في قراءة ملف GPX');
-        };
-        reader.readAsText(file);
+        
+        window.addEventListener('pointermove', onDrag);
+        window.addEventListener('pointerup', onEnd);
       });
-      // Clear Route Button
-      clearRouteBtn.addEventListener('click', () => {
-        if (!confirm('هل تريد مسح كل المحطات والنقطة البداية؟')) return;
-        stops = [];
-        originCoords = null;
-        originInput.value = '';
-        if (originMarker) {
-          map.removeLayer(originMarker);
-          originMarker = null;
-        }
-        localStorage.removeItem('stops');
-        updateStops();
-        if (routingControl) map.removeControl(routingControl);
-        document.getElementById('directionsList').innerHTML = '';
-        setCountryFromIP();
-      });
-    }
-    // --- Update Stop List ---
-    function updateStops() {
-      stopsList.innerHTML = '';
-      if (stopMarkers) {
-        stopMarkers.forEach(marker => map.removeLayer(marker));
+      
+      // Toggle sheet on click
+      if (handle) {
+        handle.addEventListener('click', () => {
+          sheet.classList.toggle('open');
+        });
       }
-      stopMarkers = [];
-      stops.forEach((s, i) => {
-        const div = document.createElement('div');
-        div.className = 'list-item';
-        div.draggable = true;
-        div.dataset.index = i;
-        div.innerHTML = `<span>${s.name}</span><button onclick="delStop(${i})">🗑️</button>`;
-        div.addEventListener('dragstart', e => {
-          e.dataTransfer.setData('text', i);
+      
+      // Toggle sheet on button click
+      const toggleSheetButton = document.getElementById('toggleSheet');
+      if (toggleSheetButton) {
+        toggleSheetButton.addEventListener('click', () => {
+          sheet.classList.toggle('open');
         });
-        div.addEventListener('dragover', e => {
-          e.preventDefault();
-          div.classList.add('drag-over');
-        });
-        div.addEventListener('dragleave', () => {
-          div.classList.remove('drag-over');
-        });
-        div.addEventListener('drop', e => {
-          e.preventDefault();
-          div.classList.remove('drag-over');
-          const from = +e.dataTransfer.getData('text');
-          stops.splice(i, 0, stops.splice(from, 1)[0]);
-          localStorage.setItem('stops', JSON.stringify(stops));
-          updateStops();
-          routeStops();
-        });
-        div.querySelector('span').onclick = () => {
-          const newStopName = prompt('تعديل اسم المحطة:', s.name);
-          if (newStopName) {
-            stops[i].name = newStopName;
-            localStorage.setItem('stops', JSON.stringify(stops));
-            updateStops();
-            routeStops();
-          }
-        };
-        stopsList.appendChild(div);
-        const marker = L.marker([s.lat, s.lon], {
-          icon: L.divIcon({
-            className: 'custom-marker stop-marker',
-            html: `<div>${s.name}</div>`,
-            iconSize: [null, null],
-            iconAnchor: [60, 15]
-          })
-        }).addTo(map);
-        stopMarkers.push(marker);
-      });
+      }
     }
-    // --- Draw Route ---
+    
+    // --- Improved Route Calculation with Error Handling ---
     function routeStops() {
       if (!originCoords || stops.length < 1) {
         if (routingControl) {
@@ -652,34 +415,56 @@
         document.getElementById('directionsList').innerHTML = '';
         return;
       }
+      
       if (routingControl) {
         map.removeControl(routingControl);
         routingControl = null;
       }
+      
       const waypoints = [
         L.latLng(originCoords),
         ...stops.map(s => L.latLng(s.lat, s.lon))
       ];
+      
       if (waypoints.length < 2) return;
+      
+      // Show loading indicator
+      showStatus('جاري حساب المسار...');
+      
+      // Create router with proper configuration
       const router = new L.Routing.OSRMv1({
         serviceUrl: 'https://router.project-osrm.org/route/v1',
         profile: 'driving'
       });
+      
+      // Create routing control
       routingControl = L.Routing.control({
-        waypoints,
+        waypoints: waypoints,
         router: router,
-        lineOptions: { styles: [{ weight: 5 }] },
+        lineOptions: { 
+          styles: [{ 
+            color: '#38bdf8', 
+            weight: 5 
+          }] 
+        },
         showAlternatives: false,
-        formatter: new L.Routing.Formatter({ language: 'ar', units: 'metric' })
+        formatter: new L.Routing.Formatter({ language: 'ar', units: 'metric' }),
+        routeWhileDragging: true,
+        autoRoute: true
       }).addTo(map);
+      
+      // Handle route found
       routingControl.on('routesfound', e => {
+        hideStatus();
         const routes = e.routes;
         const dirList = document.getElementById('directionsList');
         dirList.innerHTML = '';
+        
         if (!routes || routes.length === 0) {
           dirList.innerHTML = '<li>لم يتم العثور على مسار</li>';
           return;
         }
+        
         routes[0].instructions.forEach(inst => {
           const li = document.createElement('li');
           li.innerHTML = `
@@ -688,109 +473,79 @@
           `;
           dirList.appendChild(li);
         });
+        
+        // Fit map to route bounds
+        if (routes[0].coordinates && routes[0].coordinates.length > 0) {
+          const bounds = L.latLngBounds(routes[0].coordinates.map(coord => 
+            L.latLng(coord.lat, coord.lng)
+          ));
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
       });
-      routingControl.on('routingerror', err => {
-        console.error(err);
-        alert('عذراً، لا يمكن حساب المسار حالياً.');
+      
+      // Handle routing errors
+      routingControl.on('error', e => {
+        hideStatus();
+        console.error('Routing error:', e.message);
+        alert('عذراً، لا يمكن حساب المسار حالياً. تأكد من اتصال الإنترنت.');
+      });
+      
+      // Handle route calculation start
+      routingControl.on('routeselected', () => {
+        showStatus('جارٍ حساب المسار...');
       });
     }
-    // --- Origin Input Search ---
-    originInput.addEventListener('input', async () => {
-      const q = originInput.value;
-      if (q.length < 2) {
-        originSug.style.display = 'none';
-        return;
+    
+    // --- Status Indicator Functions ---
+    function showStatus(message) {
+      statusIndicator.textContent = message;
+      statusIndicator.style.display = 'block';
+    }
+    
+    function hideStatus() {
+      statusIndicator.style.display = 'none';
+    }
+    
+    // --- Initialize the bottom sheet functionality ---
+    function initDragHandleAndToggle() {
+      // Add toggle button if it doesn't exist
+      if (!document.getElementById('toggleSheet')) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.id = 'toggleSheet';
+        toggleBtn.textContent = '≡';
+        toggleBtn.style = `
+          position: absolute;
+          top: 8px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #334155;
+          border: none;
+          padding: 4px 8px;
+          color: #fff;
+          cursor: pointer;
+          border-radius: 4px;
+          z-index: 1003;
+          font-size: 1.2em;
+        `;
+        sheet.appendChild(toggleBtn);
       }
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=5`
-        );
-        const data = await response.json();
-        originSug.innerHTML = '';
-        originSug.style.display = 'block';
-        data.forEach(p => {
-          const li = document.createElement('li');
-          li.textContent = p.display_name;
-          li.onclick = () => {
-            const label = prompt('اسم نقطة البداية:', p.display_name) || p.display_name;
-            originInput.value = label;
-            originCoords = [+p.lat, +p.lon];
-            originSug.style.display = 'none';
-            setOrigin();
-            routeStops();
-          };
-          originSug.appendChild(li);
-        });
-      } catch (error) {
-        console.error('خطأ في البحث عن نقطة البداية:', error);
-      }
-    });
-    // --- Stop Search ---
-    stopInput.addEventListener('input', async () => {
-      const q = stopInput.value;
-      if (q.length < 2) {
-        stopSug.style.display = 'none';
-        return;
-      }
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?${nominatimParams}&q=${encodeURIComponent(q)}&limit=5`
-        );
-        const data = await response.json();
-        stopSug.innerHTML = '';
-        stopSug.style.display = 'block';
-        data.forEach(p => {
-          const li = document.createElement('li');
-          li.textContent = p.display_name;
-          li.onclick = () => {
-            const name = prompt('اسم مخصص:', p.display_name) || p.display_name;
-            if (stops.some(s => s.name === name)) {
-              alert('المحطة موجودة بالفعل!');
-              return;
-            }
-            stops.push({ name, lat: +p.lat, lon: +p.lon });
-            localStorage.setItem('stops', JSON.stringify(stops));
-            updateStops();
-            stopInput.value = '';
-            stopSug.style.display = 'none';
-            routeStops();
-          };
-          stopSug.appendChild(li);
-        });
-      } catch (error) {
-        console.error('خطأ في البحث عن محطات التوقف:', error);
-      }
-    });
-    // --- Delete Stop ---
-    window.delStop = i => {
-      stops.splice(i, 1);
-      localStorage.setItem('stops', JSON.stringify(stops));
-      updateStops();
-      routeStops();
-    };
-    // --- Load Route from URL ---
-    window.addEventListener('load', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('route')) {
-        try {
-          const routeData = JSON.parse(decodeURIComponent(urlParams.get('route')));
-          originCoords = routeData.origin;
-          originInput.value = 'مسار مشترك';
-          stops = routeData.stops.map((coords, index) => ({
-            name: `محطة ${index + 1}`,
-            lat: coords[0],
-            lon: coords[1]
-          }));
-          localStorage.setItem('stops', JSON.stringify(stops));
-          updateStops();
-          setOrigin();
-          routeStops();
-          window.history.replaceState({}, '', window.location.pathname);
-        } catch (e) {
-          console.error('فشل تحميل المسار من الرابط:', e);
-        }
-      }
-    });
+      
+      // Initialize bottom sheet functionality
+      setupBottomSheet();
+    }
+    
+    // --- Map Setup ---
+    const map = L.map('map').setView([0, 0], 2); // Will be updated later
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+    
+    // --- Initialize the bottom sheet functionality ---
+    initDragHandleAndToggle();
+    
+    // --- Initialize route calculation ---
+    routeStops();
   </script>
 </body>
 </html>

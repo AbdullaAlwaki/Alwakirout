@@ -129,7 +129,7 @@
                   alert("المحطة موجودة بالفعل!");
                   return;
                 }
-                stops.push({ name, lat: +p.lat, lon: +p.lon });
+                stops.push({ name, lat: +p.lat, lon: +p.lon, address: p.display_name });
                 localStorage.setItem("stops", JSON.stringify(stops));
                 updateStops();
                 stopInput.value = "";
@@ -531,9 +531,11 @@
           div.className = "list-item";
           div.draggable = true;
           div.dataset.index = i;
-          div.innerHTML = `<span>${s.name}</span>
+          // Extract street number and name (first part before comma)
+          const addressShort = (s.address || '').split(',')[0];
+          div.innerHTML = `<span>${s.name}</span><br><small style='color:#888;cursor:pointer'>${addressShort}</small>
   <button onclick="delStop(${i})" aria-label="حذف المحطة">🗑️</button>
-  <button onclick="openInGoogleMaps(${i})" aria-label="فتح في خرائط Google">🗺️</button>`;
+  <button onclick="openInGoogleMaps(${i})" aria-label="فتح في خرائط Google" style="background:#2563eb;color:#fff">🗺️</button>`;
 
           // Drag and drop handlers
           div.addEventListener("dragstart", (e) => {
@@ -568,15 +570,20 @@
               .forEach((el) => el.classList.remove("drag-over"));
           });
 
-          div.querySelector("span").onclick = () => {
+          function editStopHandler() {
             const newStopName = prompt("تعديل اسم المحطة:", s.name);
-            if (newStopName) {
-              stops[i].name = newStopName;
-              localStorage.setItem("stops", JSON.stringify(stops));
-              updateStops();
-              routeStops();
-            }
-          };
+            const newAddress = prompt("تعديل العنوان:", s.address || "");
+            if (newStopName) stops[i].name = newStopName;
+            if (newAddress !== null) stops[i].address = newAddress;
+            localStorage.setItem("stops", JSON.stringify(stops));
+            updateStops();
+            routeStops();
+          }
+
+          div.querySelector("span").onclick = editStopHandler;
+          const addressElem = div.querySelector("small");
+          if (addressElem) addressElem.onclick = editStopHandler;
+
           stopsList.appendChild(div);
           const marker = L.marker([s.lat, s.lon], {
             icon: L.divIcon({

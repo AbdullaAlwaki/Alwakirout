@@ -1,0 +1,272 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f172a;
+    color: #fff;
+    overflow: hidden;
+    height: 100%;
+  }
+  #map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+  }
+  /* شريط الأيقونات الرأسي على اليسار */
+  .left-bar {
+    position: fixed;
+    height: 35%;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 56px;
+    background: #1e293b;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0;
+    z-index: 1001;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.3);
+  }
+  .left-bar button {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    padding: 10px;
+    cursor: pointer;
+    margin: 4px 0;
+  }
+  .left-bar button:hover {
+    background: #334155;
+    border-radius: 8px;
+  }
+  .left-bar .tooltip {
+    position: fixed;
+    right: 60px;
+    background: #334155;
+    padding: 6px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    font-size: 14px;
+    z-index: 1002;
+  }
+  .left-bar button:hover + .tooltip {
+    opacity: 1;
+  }
+  .bottom-sheet {
+    position: fixed;
+    left: 0px;
+    right: 0;
+    bottom: 0;
+    height: 65%;
+    background: #1e293b;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    padding: 15px;
+    z-index: 1000;
+    overflow-y: auto;
+    transform: translateY(60%);
+    transition: transform 0.3s ease;
+  }
+  .bottom-sheet.open {
+    transform: translateY(0);
+  }
+  .drag-handle {
+    width: 40px;
+    height: 5px;
+    background: #4b5563;
+    border-radius: 3px;
+    margin: 0 auto 10px;
+    cursor: grab;
+  }
+  .section {
+    position: relative;
+    margin-bottom: 8px;
+  }
+  .input-suggest {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #334155;
+    color: #fff;
+  }
+  .suggestions ul {
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    background: #2a2a2a;
+    border-radius: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    z-index: 1002;
+    display: none;
+  }
+  .suggestions ul li {
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #eee;
+  }
+  .suggestions ul li:hover {
+    background: #555;
+  }
+  .list {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 8px;
+  }
+  .list-item {
+    background: #2a2a2a;
+    padding: 8px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    cursor: grab;
+  }
+  .list-item.drag-over {
+    border: 2px dashed #10b981;
+  }
+  .list-item span {
+    flex: 1;
+    word-break: break-word;
+    color: #ddd;
+  }
+  .list-item button {
+    background: #ef4444;
+    border: none;
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    color: #fff;
+    margin-right: 8px;
+  }
+  #addStopBtn {
+    width: 100%;
+    padding: 12px;
+    background: #10b981;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #addStopBtn:hover {
+    background: #0f9b6f;
+  }
+  #addStopBtn i {
+    margin-left: 8px;
+  }
+  .directions {
+    flex: 1;
+    overflow-y: auto;
+    background: #24303d;
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .directions h3 {
+    font-size: 1rem;
+    margin-bottom: 8px;
+    text-align: center;
+    color: #fff;
+  }
+  .directions ol {
+    list-style: none;
+    padding-left: 0;
+  }
+  .directions li {
+    padding: 8px;
+    background: #334155;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+  }
+  .directions li span.desc {
+    flex: 1;
+    color: #e0e0e0;
+  }
+  .directions li span.dist {
+    margin-left: 8px;
+    color: #bbb;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .leaflet-popup-content {
+    text-align: right;
+    direction: rtl;
+  }
+  .leaflet-control-container .leaflet-routing-container {
+    font-family: 'Segoe UI', sans-serif;
+    direction: rtl;
+    text-align: right;
+  }
+
+  /* أسلوب الأيقونات المخصصة */
+  .custom-marker {
+    background: #334155;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+    min-width: 80px;
+  }
+  .origin-marker { background: #10b981 !important; }
+  .stop-marker { background: #ef4444 !important; }
+
+  /* تحسينات للجوال */
+  @media (max-width: 768px) {
+    .left-bar {
+      width: 48px;
+      padding: 8px 0;
+    }
+    .bottom-sheet {
+      padding: 12px;
+    }
+    .input-suggest {
+      font-size: 14px;
+      padding: 8px;
+    }
+  }
+  /* تلميحات تفاعلية */
+  .help-tooltip {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #334155;
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 8px;
+    animation: fadeIn 0.5s;
+    z-index: 2000;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .drag-ghost {
+    opacity: 0.5;
+    transform: rotate(3deg);
+  }

@@ -1,4 +1,4 @@
-      // --- إعداد الخريطة ---
+// --- إعداد الخريطة ---
       const map = L.map("map").setView([0, 0], 2); // سنقوم بتحديث هذه الإحداثيات لاحقًا
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
@@ -531,7 +531,9 @@
           div.className = "list-item";
           div.draggable = true;
           div.dataset.index = i;
-          div.innerHTML = `<span>${s.name}</span><button onclick="delStop(${i})">🗑️</button>`;
+          div.innerHTML = `<span>${s.name}</span>
+  <button onclick="delStop(${i})" aria-label="حذف المحطة">🗑️</button>
+  <button onclick="openInGoogleMaps(${i})" aria-label="فتح في خرائط Google">🗺️</button>`;
 
           // Drag and drop handlers
           div.addEventListener("dragstart", (e) => {
@@ -655,6 +657,27 @@
         localStorage.setItem("stops", JSON.stringify(stops));
         updateStops();
         routeStops();
+      };
+
+      window.openInGoogleMaps = (i) => {
+        const stop = stops[i];
+        const url = `https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lon}`;
+        window.open(url, '_blank');
+      };
+
+      window.openRouteInGoogleMaps = () => {
+        let url = 'https://www.google.com/maps/dir/?api=1';
+        if (originCoords) {
+          url += `&origin=${originCoords[0]},${originCoords[1]}`;
+        }
+        if (stops.length > 0) {
+          url += `&destination=${stops[stops.length-1].lat},${stops[stops.length-1].lon}`;
+          if (stops.length > 1) {
+            const waypoints = stops.slice(0, -1).map(s => `${s.lat},${s.lon}`).join('|');
+            url += `&waypoints=${encodeURIComponent(waypoints)}`;
+          }
+        }
+        window.open(url, '_blank');
       };
 
       // --- تحميل المسار من الرابط ---

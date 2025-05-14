@@ -1,20 +1,66 @@
 {
-  "name": "Alwaki Route",
-  "short_name": "Alwaki",
+  "short_name": "Alwaki Route",
+  "name": "Alwaki Route - أفضل تطبيق للخرائط والمسارات",
+  "scope": ".",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#317EFB",
+  "theme_color": "#10b981",
+  "background_color": "#0f172a",
+  "orientation": "portrait",
+  "description": "تطبيق ويب متقدم لتخطيط المسارات والتنقل مع دعم كامل للعمل بدون إنترنت.",
+  "dir": "rtl",
+  "lang": "ar",
   "icons": [
     {
-      "src": "/images/icon-192x192.png",
+      "src": "images/icon-48x48.png",
+      "sizes": "48x48 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "images/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/images/icon-512x512.png",
+      "src": "images/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "images/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "96x96",
+      "purpose": "maskable"
     }
   ]
 }

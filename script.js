@@ -171,7 +171,6 @@
             map.removeControl(routingControl);
             routingControl = null;
           }
-          document.getElementById("directionsList").innerHTML = "";
           return;
         }
         const waypoints = [
@@ -201,16 +200,6 @@
         }).addTo(map);
         routingControl.on("routesfound", (e) => {
           removeRoutingPanel();
-          const dirList = document.getElementById("directionsList");
-          dirList.innerHTML = "";
-          e.routes[0].instructions.forEach((inst) => {
-            const li = document.createElement("li");
-            li.innerHTML = `
-            <span class="desc">${inst.text}</span>
-            <span class="dist">${(inst.distance / 1000).toFixed(1)} كم</span>
-          `;
-            dirList.appendChild(li);
-          });
         });
         routingControl.on("error", (e) => {
           removeRoutingPanel();
@@ -422,28 +411,22 @@
 
         // --- تصدير GPX ---
         exportGPXBtn.addEventListener("click", () => {
-          if (!originCoords && stops.length === 0) {
+          if (stops.length === 0) {
             alert("لا يوجد مسار لتصديره");
             return;
           }
+          // Only export stops, not the origin
           const waypoints = stops.map((s, i) => ({
             lat: s.lat,
             lon: s.lon,
             name: s.name || `محطة ${i + 1}`,
+            address: s.address || ""
           }));
           if (waypoints.length < 1) return alert("لا توجد نقاط لتصديرها");
-          let gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Alwaki Route" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata>
-    <name>مسار من Alwaki Route</name>
-    <desc>تم إنشاء المسار باستخدام Alwaki Route</desc>
-    <time>${new Date().toISOString()}</time>
-  </metadata>`;
+          let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Alwaki Route" xmlns="http://www.topografix.com/GPX/1/1">\n  <metadata>\n    <name>مسار من Alwaki Route</name>\n    <desc>تم إنشاء المسار باستخدام Alwaki Route</desc>\n    <time>${new Date().toISOString()}</time>\n  </metadata>`;
           waypoints.forEach((w) => {
-            gpx += `<wpt lat="${w.lat}" lon="${w.lon}">
-  <name>${w.name}</name>
-  <desc>نقطة من Alwaki Route</desc>
-</wpt>`;
+            let desc = w.address ? w.address : "نقطة من Alwaki Route";
+            gpx += `<wpt lat="${w.lat}" lon="${w.lon}">\n  <name>${w.name}</name>\n  <desc>${desc}</desc>\n</wpt>`;
           });
           gpx += `</gpx>`;
           const blob = new Blob([gpx], { type: "application/gpx+xml" });
@@ -479,11 +462,11 @@
               const lat = parseFloat(node.getAttribute("lat"));
               const lon = parseFloat(node.getAttribute("lon"));
               const nameElement = node.getElementsByTagName("name")[0];
-              const name = nameElement
-                ? nameElement.textContent
-                : `محطة ${i + 1}`;
+              const descElement = node.getElementsByTagName("desc")[0];
+              const name = nameElement ? nameElement.textContent : `محطة ${i + 1}`;
+              const address = descElement ? descElement.textContent : "";
               if (!isNaN(lat) && !isNaN(lon)) {
-                stops.push({ name, lat, lon });
+                stops.push({ name, lat, lon, address });
               }
             }
             if (stops.length > 0) {
@@ -514,7 +497,6 @@
           localStorage.removeItem("stops");
           updateStops();
           if (routingControl) map.removeControl(routingControl);
-          document.getElementById("directionsList").innerHTML = "";
           setCountryFromIP();
         });
       }

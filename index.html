@@ -9,6 +9,7 @@
     <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
     <meta name="description" content="تطبيق ويب متقدم لتخطيط المسارات والتنقل مع دعم كامل للعمل بدون إنترنت.">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Alwaki Route">
     <meta name="theme-color" content="#10b981">
@@ -22,8 +23,9 @@
     />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
-    <!-- مكتبة للبحث الجغرافي -->
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/leaflet-control-geocoder.min.js"></script>
+    <!-- مكتبة للبحث الجغرافي (تم تصحيح الرابط) -->
+    <script src="https://unpkg.com/leaflet-control-geocoder@1.13.0/dist/Control.Geocoder.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@1.13.0/dist/Control.Geocoder.css" />
     <link
       rel="stylesheet"
       href="style.css"
@@ -32,6 +34,11 @@
   <body>
     <!-- الخريطة -->
     <div id="map"></div>
+
+    <!-- زر الموقع في أعلى يمين الشاشة -->
+    <div class="map-location-btn">
+      <button id="locationBtn" title="الحصول على الموقع"><i>📍</i></button>
+    </div>
 
     <!-- نموذج إخفاء لتحميل ملف GPX -->
     <input type="file" id="gpxFileInput" accept=".gpx" style="display: none" />
@@ -83,8 +90,6 @@
           margin-top: 12px;
         "
       >
-        <button id="locationBtn" title="الحصول على الموقع"><i>📍</i></button>
-        <div class="tooltip">الحصول على الموقع</div>
         <button id="saveRouteBtn" title="حفظ المسار"><i>💾</i></button>
         <div class="tooltip">حفظ المسار</div>
         <button id="importGPXBtn" title="استيراد GPX"><i>📂</i></button>

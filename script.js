@@ -208,85 +208,183 @@
         });
       }
 
-      // --- Mobile Optimization: Touch support for bottom sheet ---
-      let startY = 0,
-        startSheetY = 0,
-        dragging = false;
-      const minTranslate = 0;
-      const maxTranslate = sheet.offsetHeight * 0.6;
-      handle.addEventListener("touchstart", (e) => {
-        dragging = true;
-        startY = e.touches[0].clientY;
-        startSheetY = sheet.getBoundingClientRect().top;
-        sheet.style.transition = "none";
-      });
-      document.addEventListener("touchmove", (e) => {
-        if (!dragging) return;
-        const deltaY = e.touches[0].clientY - startY;
-        let newY = startSheetY + deltaY;
-        const windowHeight = window.innerHeight;
-        const sheetHeight = sheet.offsetHeight;
-        newY = Math.max(
-          windowHeight - sheetHeight,
-          Math.min(newY, windowHeight - sheetHeight + maxTranslate)
-        );
-        sheet.style.transform = `translateY(${
-          newY - (windowHeight - sheetHeight)
-        }px)`;
-      });
-      document.addEventListener("touchend", () => {
-        if (!dragging) return;
-        dragging = false;
-        sheet.style.transition = "transform 0.3s";
+      // --- Bottom Sheet Handling ---
+      // States
+      let startY = 0;
+      let startSheetY = 0;
+      let isDragging = false;
+
+      // Snap points in percentage (from bottom)
+      const snapPoints = {
+        full: 0,    // Fully open
+        half: 50,   // Half way
+        peek: 65,   // Peek view
+        closed: 75   // Initial/closed state
+      };
+
+      // Helper function to get window height without address bar on mobile
+      function getWindowHeight() {
+        return window.innerHeight;
+      }
+
+      function getSheetHeight() {
+        return sheet.offsetHeight;
+      }
+
+      // Convert percentage to pixels
+      function percentToPixels(percent) {
+        const windowHeight = getWindowHeight();
+        const sheetHeight = getSheetHeight();
+        return (windowHeight - sheetHeight) + (sheetHeight * percent / 100);
+      }
+
+      // Calculate nearest snap point
+      function getNearestSnapPoint(currentY) {
+        const windowHeight = getWindowHeight();
+        const sheetHeight = getSheetHeight();
+        const currentPercent = ((currentY - (windowHeight - sheetHeight)) / sheetHeight) * 100;
+        
+        let nearestPoint = snapPoints.closed;
+        let minDistance = Math.abs(currentPercent - snapPoints.closed);
+        
+        for (const point of Object.values(snapPoints)) {
+          const distance = Math.abs(currentPercent - point);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestPoint = point;
+          }
+        }
+        
+        return nearestPoint;
+      }
+
+      // Common end drag handling
+      function endDragging() {
+        if (!isDragging) return;
+        isDragging = false;
+        sheet.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+        sheet.classList.remove("dragging");
+        
         const sheetRect = sheet.getBoundingClientRect();
-        const windowHeight = window.innerHeight;
-        if (sheetRect.top < windowHeight - sheet.offsetHeight / 2) {
+        const nearestPoint = getNearestSnapPoint(sheetRect.top);
+        
+        // Remove all position classes
+        sheet.classList.remove("open", "peek", "half");
+        
+        // Add appropriate class based on snap point
+        if (nearestPoint === snapPoints.full) {
           sheet.classList.add("open");
-          sheet.style.transform = "translateY(0)";
-        } else {
-          sheet.classList.remove("open");
-          sheet.style.transform = "translateY(60%)";
+        } else if (nearestPoint === snapPoints.peek) {
+          sheet.classList.add("peek");
+        } else if (nearestPoint === snapPoints.half) {
+          sheet.classList.add("half");
+        }
+        
+        sheet.style.transform = `translateY(${nearestPoint}%)`;
+      }
+
+      // Close bottom sheet if focus/click/touch is outside
+      function closeBottomSheet() {
+        sheet.classList.remove("open", "peek", "half");
+        sheet.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+        sheet.style.transform = `translateY(${snapPoints.closed}%)`;
+      }
+
+      window.addEventListener("mousedown", function(e) {
+        if (!sheet.contains(e.target) && !handle.contains(e.target)) {
+          closeBottomSheet();
+        }
+      });
+      window.addEventListener("touchstart", function(e) {
+        if (!sheet.contains(e.target) && !handle.contains(e.target)) {
+          closeBottomSheet();
         }
       });
 
-      // Mouse drag support for bottom sheet
-      let mouseDragging = false,
-        mouseStartY = 0,
-        mouseStartSheetY = 0;
-      handle.addEventListener("mousedown", (e) => {
-        mouseDragging = true;
-        mouseStartY = e.clientY;
-        mouseStartSheetY = sheet.getBoundingClientRect().top;
+      // --- Bottom Sheet Dragging: Make the whole sheet draggable, not just the handle ---
+
+      // Remove handle-only listeners and add to the sheet itself
+      sheet.addEventListener("touchstart", (e) => {
+        // Only start drag if not on an input, textarea, button, or selectable element
+        if (e.target.closest('input, textarea, button, select, .input-suggest, .suggestions, ul, li')) return;
+        isDragging = true;
+        startY = e.touches[0].clientY;
+        startSheetY = sheet.getBoundingClientRect().top;
         sheet.style.transition = "none";
-        document.body.style.userSelect = "none";
+        sheet.classList.add("dragging");
       });
-      document.addEventListener("mousemove", (e) => {
-        if (!mouseDragging) return;
-        const deltaY = e.clientY - mouseStartY;
-        let newY = mouseStartSheetY + deltaY;
-        const windowHeight = window.innerHeight;
-        const sheetHeight = sheet.offsetHeight;
+
+      document.addEventListener("touchmove", (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const deltaY = e.touches[0].clientY - startY;
+        let newY = startSheetY + deltaY;
+        const windowHeight = getWindowHeight();
+        const sheetHeight = getSheetHeight();
         newY = Math.max(
           windowHeight - sheetHeight,
-          Math.min(newY, windowHeight - sheetHeight + maxTranslate)
+          Math.min(newY, windowHeight - (sheetHeight * 0.25))
         );
-        sheet.style.transform = `translateY(${
-          newY - (windowHeight - sheetHeight)
-        }px)`;
+        sheet.style.transform = `translateY(${((newY - (windowHeight - sheetHeight)) / sheetHeight) * 100}%)`;
+      }, { passive: false });
+
+      document.addEventListener("touchend", endDragging);
+      document.addEventListener("touchcancel", endDragging);
+
+      sheet.addEventListener("mousedown", (e) => {
+        if (e.target.closest('input, textarea, button, select, .input-suggest, .suggestions, ul, li')) return;
+        isDragging = true;
+        startY = e.clientY;
+        startSheetY = sheet.getBoundingClientRect().top;
+        sheet.style.transition = "none";
+        sheet.classList.add("dragging");
+        document.body.style.userSelect = "none";
       });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        const deltaY = e.clientY - startY;
+        let newY = startSheetY + deltaY;
+        const windowHeight = getWindowHeight();
+        const sheetHeight = getSheetHeight();
+        newY = Math.max(
+          windowHeight - sheetHeight,
+          Math.min(newY, windowHeight - (sheetHeight * 0.25))
+        );
+        sheet.style.transform = `translateY(${((newY - (windowHeight - sheetHeight)) / sheetHeight) * 100}%)`;
+      });
+
       document.addEventListener("mouseup", () => {
-        if (!mouseDragging) return;
-        mouseDragging = false;
-        sheet.style.transition = "transform 0.3s";
         document.body.style.userSelect = "";
-        const sheetRect = sheet.getBoundingClientRect();
-        const windowHeight = window.innerHeight;
-        if (sheetRect.top < windowHeight - sheet.offsetHeight / 2) {
-          sheet.classList.add("open");
-          sheet.style.transform = "translateY(0)";
-        } else {
-          sheet.classList.remove("open");
-          sheet.style.transform = "translateY(60%)";
+        endDragging();
+      });
+
+      // Double tap/click to toggle between full and peek
+      let lastTapTime = 0;
+      handle.addEventListener("touchend", (e) => {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTapTime;
+        if (tapLength < 300 && tapLength > 0) {
+          sheet.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+          if (sheet.classList.contains("open")) {
+            sheet.classList.remove("open");
+            sheet.classList.add("peek");
+            sheet.style.transform = `translateY(${snapPoints.peek}%)`;
+          } else {
+            sheet.classList.remove("peek", "half");
+            sheet.classList.add("open");
+            sheet.style.transform = `translateY(${snapPoints.full}%)`;
+          }
+        }
+        lastTapTime = currentTime;
+      });
+
+      sheet.addEventListener('focusin', function(e) {
+        if (e.target.matches('input, textarea, select')) {
+          sheet.classList.add('open');
+          sheet.classList.remove('peek', 'half');
+          sheet.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+          sheet.style.transform = 'translateY(0)';
         }
       });
 

@@ -106,8 +106,60 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('sw.js');
+          navigator.serviceWorker.register('sw.js').then(function(reg) {
+            // Show offline ready notification
+            reg.onupdatefound = function() {
+              const installingWorker = reg.installing;
+              installingWorker.onstatechange = function() {
+                if (installingWorker.state === 'installed') {
+                  if (navigator.serviceWorker.controller) {
+                    showToast('تم تحديث التطبيق!');
+                  } else {
+                    showToast('التطبيق جاهز للعمل بدون إنترنت!');
+                  }
+                }
+              };
+            };
+          });
         });
+      }
+      // PWA install prompt
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        showInstallButton();
+      });
+      function showInstallButton() {
+        let btn = document.getElementById('pwaInstallBtn');
+        if (!btn) {
+          btn = document.createElement('button');
+          btn.id = 'pwaInstallBtn';
+          btn.textContent = 'تثبيت التطبيق';
+          btn.style = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:3000;background:#10b981;color:#fff;padding:12px 24px;border:none;border-radius:8px;font-size:1rem;box-shadow:0 2px 8px #0003;';
+          btn.onclick = function() {
+            btn.style.display = 'none';
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(() => {
+              deferredPrompt = null;
+            });
+          };
+          document.body.appendChild(btn);
+        } else {
+          btn.style.display = 'block';
+        }
+      }
+      function showToast(msg) {
+        let toast = document.getElementById('pwaToast');
+        if (!toast) {
+          toast = document.createElement('div');
+          toast.id = 'pwaToast';
+          toast.style = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#334155;color:#fff;padding:10px 24px;border-radius:8px;z-index:4000;font-size:1rem;box-shadow:0 2px 8px #0003;';
+          document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 3500);
       }
     </script>
     <script src="script.js"></script>

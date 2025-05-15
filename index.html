@@ -68,15 +68,6 @@
         />
         <ul id="stopSug"></ul>
       </div>
-      <!-- نظام تصفية المحطات -->
-      <div class="filter-section">
-        <input
-          type="text"
-          id="filterStops"
-          placeholder="ابحث في المحطات..."
-          class="input-suggest"
-        />
-      </div>
       <!-- نقل شريط الأيقونات إلى أسفل الشيت -->
       <div
         class="left-bar"
@@ -142,13 +133,25 @@
           btn.style.display = 'flex';
           btn.onclick = function() {
             btn.style.display = 'none';
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then(() => {
-              deferredPrompt = null;
-            });
+            if (deferredPrompt) {
+              deferredPrompt.prompt();
+              deferredPrompt.userChoice.then(() => {
+                deferredPrompt = null;
+              });
+            } else {
+              // Show iOS install instructions if not Android/Chrome
+              showToast('لتثبيت التطبيق: من قائمة المتصفح اختر "إضافة إلى الشاشة الرئيسية"');
+            }
           };
         }
       }
+      // Always show the install button if app is not installed (for iOS/Safari)
+      window.addEventListener('DOMContentLoaded', function() {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        if (!isStandalone) {
+          showInstallBtnBar();
+        }
+      });
       function showToast(msg) {
         let toast = document.getElementById('pwaToast');
         if (!toast) {

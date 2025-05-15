@@ -8,16 +8,23 @@ const filesToCache = [
   "script.js",
   "style.css",
   "manifest.json",
-  "/images/favicon.ico",
-  "/images/icon-128x128.png",
-  "/images/icon-144x144.png",
-  "/images/icon-152x152.png",
-  "/images/icon-192x192.png",
-  "/images/icon-384x384.png",
-  "/images/icon-48x48.png",
-  "/images/icon-512x512.png",
-  "/images/icon-72x72.png",
-  "/images/icon-96x96.png"
+  "images/favicon.ico",
+  // Android icons
+  "images/android/android-launchericon-144-144.png",
+  "images/android/android-launchericon-192-192.png",
+  "images/android/android-launchericon-48-48.png",
+  "images/android/android-launchericon-512-512.png",
+  "images/android/android-launchericon-72-72.png",
+  "images/android/android-launchericon-96-96.png",
+  // iOS icons (just a few for fallback)
+  "images/ios/120.png",
+  "images/ios/144.png",
+  "images/ios/152.png",
+  "images/ios/192.png",
+  "images/ios/256.png",
+  // Windows icons (just a few for fallback)
+  "images/windows11/LargeTile.scale-100.png",
+  "images/windows11/SmallTile.scale-100.png"
 ];
 
 const self = this;

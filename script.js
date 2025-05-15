@@ -417,7 +417,14 @@
       function setOrigin() {
         if (originMarker) map.removeLayer(originMarker);
         if (originCoords) {
-          originMarker = L.marker(originCoords)
+          originMarker = L.marker(originCoords, {
+            icon: L.divIcon({
+              className: 'custom-marker origin-marker',
+              html: '<div style="font-size:1.3em;color:#fff;background:#10b981;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px #10b981;">🚩</div>',
+              iconSize: [38, 38],
+              iconAnchor: [19, 19],
+            })
+          })
             .addTo(map)
             .bindPopup("نقطة البداية")
             .openPopup();
@@ -602,6 +609,13 @@
       // --- تحديث قائمة المحطات ---
       function updateStops() {
         stopsList.innerHTML = "";
+        // Show origin (start point) at the top
+        if (originCoords) {
+          const originDiv = document.createElement("div");
+          originDiv.className = "list-item origin-item";
+          originDiv.innerHTML = `<span style='font-weight:bold;color:#10b981'>🚩 نقطة البداية</span><br><small style='color:#888'>${originInput.value || 'غير محددة'}</small>`;
+          stopsList.appendChild(originDiv);
+        }
         if (stopMarkers) {
           stopMarkers.forEach((marker) => map.removeLayer(marker));
         }

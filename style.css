@@ -9,6 +9,8 @@
     color: #fff;
     overflow: hidden;
     height: 100%;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    touch-action: manipulation;
   }
   #map {
     position: absolute;
@@ -79,6 +81,7 @@
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .bottom-sheet.open {
     transform: translateY(0);
@@ -185,13 +188,24 @@
   }
   @media (max-width: 768px) {
     .suggestions ul {
-      font-size: 0.98em;
-      min-width: 120px;
-      padding: 2px 0;
+      font-size: 1em;
+      min-width: 200px;
+      padding: 6px 0;
+      max-height: 280px;
+      -webkit-overflow-scrolling: touch;
     }
     .suggestions ul li {
-      padding: 10px 12px;
-      font-size: 0.98em;
+      padding: 14px 16px;
+      font-size: 16px;
+      margin: 2px 6px;
+      border-radius: 8px;
+    }
+    .suggestions ul li:active {
+      background: #0d9668;
+    }
+    /* Improve touch targets */
+    .section {
+      margin-bottom: 14px;
     }
   }
   .list {
@@ -224,6 +238,22 @@
     cursor: pointer;
     color: #fff;
     margin-right: 8px;
+  }
+  .origin-item {
+    background: #10b981;
+    color: #fff;
+    font-weight: bold;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-shadow: 0 2px 8px #10b98144;
+    font-size: 1.08em;
+  }
+  .origin-item span {
+    color: #fff !important;
   }
   #addStopBtn {
     width: 100%;
@@ -268,51 +298,324 @@
   .origin-marker { background: #10b981 !important; }
   .stop-marker { background: #ef4444 !important; }
   .custom-marker.stop-marker {
-    background: linear-gradient(135deg, #ef4444 80%, #fff 100%);
+    background: linear-gradient(135deg, #ef4444 70%, #ff6b6b 100%);
     color: #fff;
     border-radius: 50%;
-    min-width: 38px;
-    min-height: 38px;
-    width: 38px;
-    height: 38px;
+    min-width: 42px;
+    min-height: 42px;
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.25em;
     font-weight: bold;
-    box-shadow: 0 4px 16px 0 rgba(0,0,0,0.18), 0 1.5px 0 #fff2 inset;
-    border: 2.5px solid #fff;
-    transition: box-shadow 0.18s, background 0.18s;
+    box-shadow: 0 6px 20px 0 rgba(0,0,0,0.25), 0 2px 0 rgba(255,255,255,0.2) inset;
+    border: 3px solid #fff;
+    transition: all 0.3s ease;
     position: relative;
     z-index: 10;
+    transform: translateY(0);
+    overflow: hidden;
   }
+  .custom-marker.origin-marker {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  /* إضافة تأثير نبض للعلامة */
+  @keyframes pulse {
+    0% { transform: scale(1); box-shadow: 0 6px 20px 0 rgba(0,0,0,0.25), 0 2px 0 rgba(255,255,255,0.2) inset; }
+    50% { transform: scale(1.05); box-shadow: 0 8px 24px 0 rgba(239,68,68,0.4), 0 2px 0 rgba(255,255,255,0.3) inset; }
+    100% { transform: scale(1); box-shadow: 0 6px 20px 0 rgba(0,0,0,0.25), 0 2px 0 rgba(255,255,255,0.2) inset; }
+  }
+  
+  .custom-marker.stop-marker:hover {
+    transform: translateY(-3px) rotate(2deg);
+    box-shadow: 0 8px 24px 0 rgba(239,68,68,0.4), 0 2px 0 rgba(255,255,255,0.3) inset;
+    animation: pulse 1.5s infinite;
+  }
+  
+  .custom-marker.stop-marker:active {
+    transform: translateY(1px);
+    box-shadow: 0 4px 12px 0 rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.15) inset;
+  }
+  
+  /* تحسين عرض النص داخل العلامة */
   .custom-marker.stop-marker div {
     width: 100%;
     text-align: center;
-    font-size: 1.1em;
+    font-size: 1.15em;
     font-weight: bold;
     color: #fff;
     letter-spacing: 0.5px;
-    line-height: 38px;
+    line-height: 42px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 2px;
+    position: relative;
+    z-index: 2;
+  }
+  
+  /* إضافة تأثير توهج عند التحويم */
+  .custom-marker.stop-marker::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+    border-radius: 50%;
+    opacity: 0;
+    z-index: 1;
+    transition: opacity 0.3s ease;
+  }
+  
+  .custom-marker.stop-marker:hover::before {
+    opacity: 0.4;
   }
   
   .custom-marker.stop-marker:focus {
-    outline: 2px solid #10b981;
-    outline-offset: 2px;
+    outline: 3px solid #10b981;
+    outline-offset: 3px;
   }
+  
+  /* تأثير عند النقر */
+  @keyframes click-effect {
+    0% { transform: scale(0.95); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  .custom-marker.stop-marker:active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.3);
+    border-radius: 50%;
+    animation: click-effect 0.4s ease-out;
+  }
+  
+  /* تحسين مظهر العلامة على الأجهزة المختلفة */
+  @media (max-width: 768px) {
+    .custom-marker.stop-marker {
+      min-width: 38px;
+      min-height: 38px;
+      width: 38px;
+      height: 38px;
+      font-size: 1.1em;
+      border-width: 2px;
+    }
+    
+    .custom-marker.stop-marker div {
+      line-height: 38px;
+      font-size: 1em;
+    }
+  }
+  
+  /* تحسين إمكانية الوصول */
+  .custom-marker.stop-marker:focus-visible {
+    outline: 3px solid #10b981;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.4);
+  }
+  
+  /* تم دمج تأثير الظل مع تنسيق النص الأساسي */
 
   /* تحسينات للجوال */
   @media (max-width: 768px) {
     .left-bar {
-      width: 48px;
-      padding: 8px 0;
+      width: 44px;
+      padding: 6px 0;
+      height: auto;
+      top: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .left-bar button {
+      font-size: 18px;
+      padding: 8px;
+      margin: 3px 0;
     }
     .bottom-sheet {
-      padding: 12px;
+      padding: 16px 12px;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+    }
+    .drag-handle {
+      width: 50px;
+      height: 5px;
+      margin-bottom: 12px;
     }
     .input-suggest {
-      font-size: 14px;
-      padding: 8px;
+      font-size: 16px;
+      padding: 12px 10px;
+      height: 46px;
+    }
+    #addStopBtn {
+      padding: 14px;
+      font-size: 16px;
+      border-radius: 10px;
+      margin-top: 5px;
+    }
+    .list-item {
+      padding: 12px 10px;
+      margin-bottom: 8px;
+      border-radius: 10px;
+      background: #334155;
+    }
+    .list-item button {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .list-item span {
+      font-size: 15px;
+    }
+    .suggestions ul {
+      border-radius: 10px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    }
+    .suggestions ul li {
+      padding: 14px 12px;
+      font-size: 15px;
+    }
+  }
+
+  /* تحسينات لأجهزة سطح المكتب */
+  @media (min-width: 1024px) {
+    /* تحويل الشريط السفلي إلى لوحة جانبية */
+    .bottom-sheet {
+      width: 380px;
+      height: 100%;
+      right: 0;
+      left: auto;
+      top: 0;
+      transform: translateX(0) !important;
+      border-radius: 0;
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+      border-bottom-left-radius: 0;
+      padding: 20px;
+      box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+      overflow-y: auto;
+    }
+
+    /* إخفاء مقبض السحب على سطح المكتب */
+    .drag-handle {
+      display: none;
+    }
+
+    /* تعديل حجم الخريطة لتناسب وجود اللوحة الجانبية */
+    #map {
+      right: 380px;
+    }
+
+    /* تحسين مظهر الأزرار والمدخلات */
+    .input-suggest {
+      padding: 12px;
+      font-size: 1.1rem;
+    }
+
+    /* تحسين مظهر قائمة المحطات */
+    .list {
+      max-height: calc(100vh - 350px);
+      margin-bottom: 16px;
+      padding-right: 5px;
+    }
+
+    .list-item {
+      padding: 12px;
+      margin-bottom: 10px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      background: #334155;
+    }
+    
+    .list-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* تحسين المسافات والهوامش في الشيت الجانبي */
+    .bottom-sheet .section {
+      margin-bottom: 16px;
+    }
+    
+    #stopsList {
+      margin: 20px 0;
+    }
+
+    /* تحسين مظهر شريط الأدوات */
+    .left-bar {
+      width: 60px;
+      padding: 16px 0;
+    }
+
+    .left-bar button {
+      font-size: 24px;
+      padding: 12px;
+      margin: 8px 0;
+    }
+
+    /* تعديل موضع زر الموقع */
+    .map-location-btn {
+      top: 20px;
+      left: 20px;
+    }
+
+    .map-location-btn button {
+      width: 54px;
+      height: 54px;
+      font-size: 1.8em;
+    }
+
+    /* تحسين مظهر الاقتراحات */
+    .suggestions ul {
+      max-height: 320px;
+    }
+
+    .suggestions ul li {
+      padding: 14px 20px;
+      font-size: 1.1em;
+    }
+    
+    /* تحسين شريط الأدوات في الشيت السفلي للديسكتوب */
+    .bottom-sheet .left-bar {
+      position: static;
+      flex-direction: row;
+      width: 100%;
+      height: auto;
+      box-shadow: none;
+      justify-content: space-around;
+      margin-top: 16px;
+      padding: 12px 0;
+      background: #263347;
+      border-radius: 12px;
+    }
+    
+    .bottom-sheet .left-bar button {
+      margin: 0 8px;
+      transition: transform 0.2s, background 0.2s;
+    }
+    
+    .bottom-sheet .left-bar button:hover {
+      transform: translateY(-2px);
+      background: #3e4c64;
+    }
+    
+    #pwaInstallBtnBar {
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      margin-top: 20px;
     }
   }
   /* تلميحات تفاعلية */
@@ -365,11 +668,53 @@
   @media (max-width: 768px) {
     .map-location-btn {
       top: 10px;
-      left: 10px;
+      right: 10px;
+      left: auto;
     }
     .map-location-btn button {
-      width: 40px;
-      height: 40px;
-      font-size: 1.3em;
+      width: 44px;
+      height: 44px;
+      font-size: 1.4em;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+    }
+    /* Improve custom markers for touch */
+    .custom-marker.stop-marker {
+      min-width: 46px;
+      min-height: 46px;
+      width: 46px;
+      height: 46px;
+      border-width: 3px;
+      font-size: 1.2em;
+    }
+    .custom-marker.stop-marker div {
+      line-height: 46px;
+    }
+    /* Improve bottom sheet behavior */
+    .bottom-sheet.peek {
+      transform: translateY(70%);
+    }
+    .bottom-sheet.half {
+      transform: translateY(45%);
+    }
+    /* Improve help tooltip */
+    .help-tooltip {
+      padding: 10px 16px;
+      font-size: 15px;
+      border-radius: 10px;
+      bottom: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+  }
+  
+  /* تحسين موضع زر الموقع على شاشات متوسطة */
+  @media (min-width: 769px) and (max-width: 1023px) {
+    .map-location-btn {
+      top: 15px;
+      left: 15px;
+    }
+    .map-location-btn button {
+      width: 46px;
+      height: 46px;
+      font-size: 1.5em;
     }
   }

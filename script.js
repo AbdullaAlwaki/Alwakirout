@@ -609,13 +609,8 @@
       // --- تحديث قائمة المحطات ---
       function updateStops() {
         stopsList.innerHTML = "";
-        // Show origin (start point) at the top
-        if (originCoords) {
-          const originDiv = document.createElement("div");
-          originDiv.className = "list-item origin-item";
-          originDiv.innerHTML = `<span style='font-weight:bold;color:#10b981'>🚩 نقطة البداية</span><br><small style='color:#888'>${originInput.value || 'غير محددة'}</small>`;
-          stopsList.appendChild(originDiv);
-        }
+        // Remove origin (start point) from the list
+        // Do not add the origin-item div
         if (stopMarkers) {
           stopMarkers.forEach((marker) => map.removeLayer(marker));
         }

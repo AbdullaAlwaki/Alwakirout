@@ -609,99 +609,100 @@
       // --- تحديث قائمة المحطات ---
       function updateStops() {
         stopsList.innerHTML = "";
-        // Remove origin (start point) from the list
-        // Do not add the origin-item div
+        // Remove all stop markers from the map
         if (stopMarkers) {
-          stopMarkers.forEach((marker) => map.removeLayer(marker));
+            stopMarkers.forEach((marker) => map.removeLayer(marker));
         }
         stopMarkers = [];
+        // Do not add any stop markers to the map
+        // Do not create or append marker elements
         stops.forEach((s, i) => {
-          const div = document.createElement("div");
-          div.className = "list-item";
-          div.draggable = true;
-          div.dataset.index = i;
-          // Extract street number and name (first part before comma)
-          const addressShort = (s.address || '').split(',')[0];
-          div.innerHTML = `<span>${s.name}</span><br><small style='color:#888;cursor:pointer'>${addressShort}</small>
-  <button onclick="delStop(${i})" aria-label="حذف المحطة">🗑️</button>
-  <button onclick="openInGoogleMaps(${i})" aria-label="فتح في خرائط Google" style="background:#2563eb;color:#fff">🗺️</button>`;
+            const div = document.createElement("div");
+            div.className = "list-item";
+            div.draggable = true;
+            div.dataset.index = i;
+            // Extract street number and name (first part before comma)
+            const addressShort = (s.address || '').split(',')[0];
+            div.innerHTML = `<span>${s.name}</span><br><small style='color:#888;cursor:pointer'>${addressShort}</small>
+<button onclick="delStop(${i})" aria-label="حذف المحطة">🗑️</button>
+<button onclick="openInGoogleMaps(${i})" aria-label="فتح في خرائط Google" style="background:#2563eb;color:#fff">🗺️</button>`;
+            // Drag and drop handlers
+            div.addEventListener("dragstart", (e) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", i);
+                div.classList.add("dragging");
+            });
+            div.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                div.classList.add("drag-over");
+            });
+            div.addEventListener("dragleave", () => {
+                div.classList.remove("drag-over");
+            });
+            div.addEventListener("drop", (e) => {
+                e.preventDefault();
+                div.classList.remove("drag-over");
+                const from = +e.dataTransfer.getData("text/plain");
+                const to = i;
+                if (from !== to) {
+                    const moved = stops.splice(from, 1)[0];
+                    stops.splice(to, 0, moved);
+                    localStorage.setItem("stops", JSON.stringify(stops));
+                    updateStops();
+                    routeStops();
+                }
+            });
+            div.addEventListener("dragend", () => {
+                div.classList.remove("dragging");
+                document
+                    .querySelectorAll(".drag-over")
+                    .forEach((el) => el.classList.remove("drag-over"));
+            });
 
-          // Drag and drop handlers
-          div.addEventListener("dragstart", (e) => {
-            e.dataTransfer.effectAllowed = "move";
-            e.dataTransfer.setData("text/plain", i);
-            div.classList.add("dragging");
-          });
-          div.addEventListener("dragover", (e) => {
-            e.preventDefault();
-            div.classList.add("drag-over");
-          });
-          div.addEventListener("dragleave", () => {
-            div.classList.remove("drag-over");
-          });
-          div.addEventListener("drop", (e) => {
-            e.preventDefault();
-            div.classList.remove("drag-over");
-            const from = +e.dataTransfer.getData("text/plain");
-            const to = i;
-            if (from !== to) {
-              const moved = stops.splice(from, 1)[0];
-              stops.splice(to, 0, moved);
-              localStorage.setItem("stops", JSON.stringify(stops));
-              updateStops();
-              routeStops();
+            function editStopHandler() {
+                const newStopName = prompt("تعديل اسم المحطة:", s.name);
+                const newAddress = prompt("تعديل العنوان:", s.address || "");
+                if (newStopName) stops[i].name = newStopName;
+                if (newAddress !== null) stops[i].address = newAddress;
+                localStorage.setItem("stops", JSON.stringify(stops));
+                updateStops();
+                routeStops();
             }
-          });
-          div.addEventListener("dragend", () => {
-            div.classList.remove("dragging");
-            document
-              .querySelectorAll(".drag-over")
-              .forEach((el) => el.classList.remove("drag-over"));
-          });
 
-          function editStopHandler() {
-            const newStopName = prompt("تعديل اسم المحطة:", s.name);
-            const newAddress = prompt("تعديل العنوان:", s.address || "");
-            if (newStopName) stops[i].name = newStopName;
-            if (newAddress !== null) stops[i].address = newAddress;
-            localStorage.setItem("stops", JSON.stringify(stops));
-            updateStops();
-            routeStops();
-          }
+            div.querySelector("span").onclick = editStopHandler;
+            const addressElem = div.querySelector("small");
+            if (addressElem) addressElem.onclick = editStopHandler;
 
-          div.querySelector("span").onclick = editStopHandler;
-          const addressElem = div.querySelector("small");
-          if (addressElem) addressElem.onclick = editStopHandler;
-
-          stopsList.appendChild(div);
-          const marker = L.marker([s.lat, s.lon], {
-            icon: L.divIcon({
-              className: "custom-marker stop-marker",
-              html: `<div>${s.name}</div>`,
-              iconSize: [null, null],
-              iconAnchor: [60, 15],
-            }),
-          }).addTo(map);
-          stopMarkers.push(marker);
+            stopsList.appendChild(div);
+            // Do not add marker to map
         });
       }
 
       // Touch drag-and-drop for stopsList
       let touchDragIndex = null;
+      let dragTimeout = null;
       stopsList.addEventListener(
         "touchstart",
         function (e) {
+          if (e.touches.length > 1) return;
           const target = e.target.closest(".list-item");
           if (!target) return;
-          touchDragIndex = +target.dataset.index;
-          target.classList.add("dragging");
+          dragTimeout = setTimeout(() => {
+            touchDragIndex = +target.dataset.index;
+            target.classList.add("dragging");
+            stopsList.setAttribute('data-dragging', 'true');
+          }, 300); // 300ms for long press
         },
         { passive: true }
       );
       stopsList.addEventListener(
         "touchmove",
         function (e) {
-          if (touchDragIndex === null) return;
+          if (touchDragIndex === null) {
+            clearTimeout(dragTimeout);
+            return; // allow scroll if not dragging
+          }
+          e.preventDefault();
           const touch = e.touches[0];
           const overElem = document.elementFromPoint(
             touch.clientX,
@@ -720,6 +721,7 @@
       stopsList.addEventListener(
         "touchend",
         function (e) {
+          clearTimeout(dragTimeout);
           if (touchDragIndex === null) return;
           const touch = e.changedTouches[0];
           const overElem = document.elementFromPoint(
@@ -729,7 +731,7 @@
           const overItem = overElem && overElem.closest(".list-item");
           stopsList
             .querySelectorAll(".drag-over")
-            .forEach((el) => el.classList.remove("drag-over"));
+            .forEach((el) => el.classList.remove(".drag-over"));
           const from = touchDragIndex;
           let to = from;
           if (overItem) to = +overItem.dataset.index;
@@ -742,6 +744,7 @@
           }
           const dragging = stopsList.querySelector(".dragging");
           if (dragging) dragging.classList.remove("dragging");
+          stopsList.removeAttribute('data-dragging');
           touchDragIndex = null;
         },
         { passive: false }

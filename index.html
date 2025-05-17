@@ -30,6 +30,9 @@
       rel="stylesheet"
       href="style.css"
     />
+    <link rel="stylesheet" href="style.mobile.css">
+    <link rel="stylesheet" href="style.desktop.css">
+    <link rel="stylesheet" href="style.keyframes.css">
   </head>
   <body>
     <!-- الخريطة -->
@@ -99,36 +102,6 @@
       </div>
     </div>
 
-    <!-- Desktop sidebar for PWA/desktop view -->
-    <div class="desktop-sidebar" id="desktopSidebar" style="display:none">
-      <div class="section suggestions">
-        <input id="originInputDesktop" class="input-suggest" placeholder="نقطة البداية (اضغط للاختيار)" aria-label="نقطة البداية" />
-        <ul id="originSugDesktop"></ul>
-      </div>
-      <div class="list" id="stopsListDesktop"></div>
-      <div class="section suggestions">
-        <input id="stopInputDesktop" class="input-suggest" placeholder="ابحث عن محطة توقف أو عنوان كامل" aria-label="محطة التوقف" />
-        <ul id="stopSugDesktop"></ul>
-      </div>
-      <div class="left-bar">
-        <button id="saveRouteBtnDesktop" title="حفظ المسار"><i>💾</i></button>
-        <div class="tooltip">حفظ المسار</div>
-        <button id="importGPXBtnDesktop" title="استيراد GPX"><i>📂</i></button>
-        <div class="tooltip">استيراد GPX</div>
-        <button id="exportGPXBtnDesktop" title="تصدير GPX"><i>📁</i></button>
-        <div class="tooltip">تصدير GPX</div>
-        <button id="shareRouteBtnDesktop" title="مشاركة"><i>🔗</i></button>
-        <div class="tooltip">مشاركة</div>
-        <button id="clearRouteBtnDesktop" title="مسح"><i>🗑️</i></button>
-        <div class="tooltip">مسح المسار</div>
-      </div>
-      <div style="width:100%;display:flex;justify-content:center;margin-top:12px;">
-        <button id="pwaInstallBtnBarDesktop" style="display:none;background:#10b981;color:#fff;font-weight:bold;padding:10px 18px;border:none;border-radius:8px;font-size:1rem;box-shadow:0 2px 8px #0003;align-items:center;gap:8px;cursor:pointer;">
-          <span style="font-size:1.3em;margin-left:8px;vertical-align:middle;">⬇️</span> تثبيت التطبيق
-        </button>
-      </div>
-    </div>
-
     <script>
       // Register service worker with update notification and offline fallback
       if ('serviceWorker' in navigator) {
@@ -180,11 +153,6 @@
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
         if (!isStandalone) {
           showInstallBtnBar();
-        }
-        // Show/hide sidebar for desktop
-        if (window.innerWidth > 1024) {
-          document.getElementById('desktopSidebar').style.display = 'flex';
-          document.getElementById('sheet').style.display = 'none';
         }
       });
       // Toast notification utility

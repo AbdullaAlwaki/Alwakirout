@@ -82,3 +82,11 @@ self.addEventListener("fetch", (e) => {
     })
   );
 });
+
+// Listen for force-update message and update service worker immediately
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.action === 'force-update') {
+    self.skipWaiting();
+    self.clients.claim();
+  }
+});

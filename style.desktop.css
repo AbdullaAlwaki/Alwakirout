@@ -1,0 +1,101 @@
+@media (min-width: 1024px) {
+  .bottom-sheet {
+    width: 380px;
+    height: 100%;
+    right: 0;
+    left: auto;
+    top: 0;
+    transform: translateX(0) !important;
+    border-radius: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 0;
+    padding: 20px;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+    overflow-y: auto;
+  }
+  .drag-handle {
+    display: none;
+  }
+  #map {
+    right: 380px;
+  }
+  .input-suggest {
+    padding: 12px;
+    font-size: 1.1rem;
+  }
+  .list {
+    max-height: calc(100vh - 350px);
+    margin-bottom: 16px;
+    padding-right: 5px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .list-item {
+    padding: 12px;
+    margin-bottom: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    background: #334155;
+    user-select: none;
+    cursor: grab;
+  }
+  .list-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  .list-item:active {
+    cursor: grabbing;
+  }
+  .bottom-sheet .section {
+    margin-bottom: 16px;
+  }
+  #stopsList {
+    margin: 20px 0;
+  }
+  .left-bar {
+    width: 60px;
+    padding: 16px 0;
+  }
+  .left-bar button {
+    font-size: 24px;
+    padding: 12px;
+    margin: 8px 0;
+  }
+  .suggestions ul {
+    font-size: 1em;
+    min-width: 200px;
+    padding: 6px 0;
+    max-height: 320px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .suggestions ul li {
+    padding: 14px 20px;
+    font-size: 1.1em;
+  }
+  .bottom-sheet .left-bar {
+    position: static;
+    flex-direction: row;
+    width: 100%;
+    height: auto;
+    box-shadow: none;
+    justify-content: space-around;
+    margin-top: 16px;
+    padding: 12px 0;
+    background: #263347;
+    border-radius: 12px;
+  }
+  .bottom-sheet .left-bar button {
+    margin: 0 8px;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .bottom-sheet .left-bar button:hover {
+    transform: translateY(-2px);
+    background: #3e4c64;
+  }
+  #pwaInstallBtnBar {
+    padding: 12px 24px;
+    font-size: 1.1rem;
+    margin-top: 20px;
+  }
+}

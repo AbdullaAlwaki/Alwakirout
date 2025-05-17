@@ -420,7 +420,7 @@
           originMarker = L.marker(originCoords, {
             icon: L.divIcon({
               className: 'custom-marker origin-marker',
-              html: '<div style="font-size:1.3em;color:#fff;background:#10b981;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px #10b981;">🚩</div>',
+              html: '<div style="display:none"></div>',
               iconSize: [38, 38],
               iconAnchor: [19, 19],
             })
@@ -614,20 +614,60 @@
             stopMarkers.forEach((marker) => map.removeLayer(marker));
         }
         stopMarkers = [];
-        // Do not add any stop markers to the map
-        // Do not create or append marker elements
+        // إضافة ماركر مخصص لكل محطة
         stops.forEach((s, i) => {
             const div = document.createElement("div");
             div.className = "list-item";
-            div.draggable = true;
+            div.draggable = false; // never draggable by default
             div.dataset.index = i;
             // Extract street number and name (first part before comma)
             const addressShort = (s.address || '').split(',')[0];
-            div.innerHTML = `<span>${s.name}</span><br><small style='color:#888;cursor:pointer'>${addressShort}</small>
-<button onclick="delStop(${i})" aria-label="حذف المحطة">🗑️</button>
-<button onclick="openInGoogleMaps(${i})" aria-label="فتح في خرائط Google" style="background:#2563eb;color:#fff">🗺️</button>`;
+            div.innerHTML = `
+              <span>${s.name}</span><br>
+              <small style='color:#888;cursor:pointer'>${addressShort}</small>
+              <button class="stop-hamburger" aria-label="خيارات السحب" style="background:none;border:none;cursor:grab;padding:0 8px;font-size:1.5em;vertical-align:middle;">&#9776;</button>
+              <button onclick="delStop(${i})" aria-label="حذف المحطة">🗑️</button>
+              <button onclick="openInGoogleMaps(${i})" aria-label="فتح في خرائط Google" style="background:#2563eb;color:#fff">🗺️</button>
+            `;
+            // إضافة ماركر دائري باسم المحطة (أول حرف أو رقم المحطة)
+            const markerLabel = s.name.length > 2 ? s.name[0] : s.name;
+            const marker = L.marker([s.lat, s.lon], {
+                icon: L.divIcon({
+                    className: 'custom-stop-marker',
+                    html: `<div style="width:38px;height:38px;background:#334155;color:#fff;font-weight:bold;border-radius:50%;box-shadow:0 4px 18px #10b98155,0 1px 0 #fff2 inset;font-size:1.13em;white-space:nowrap;display:flex;align-items:center;justify-content:center;letter-spacing:0.5px;overflow:hidden;user-select:none;">${markerLabel}</div>`
+                })
+            }).addTo(map).bindTooltip(s.name, {direction:'top',offset:[0,-20],className:'marker-tooltip'});
+            stopMarkers.push(marker);
+
+            // Only hamburger triggers drag
+            const hamburger = div.querySelector('.stop-hamburger');
+            hamburger.addEventListener("mousedown", (e) => {
+                if (window.innerWidth >= 1024) {
+                    div.draggable = true;
+                }
+            });
+            // إعادة تعيين draggable عند نهاية السحب أو عند الخروج
+            hamburger.addEventListener("mouseup", (e) => {
+                if (window.innerWidth >= 1024) {
+                    div.draggable = false;
+                }
+            });
+            div.addEventListener("mouseleave", (e) => {
+                if (window.innerWidth >= 1024) {
+                    div.draggable = false;
+                }
+            });
+            div.addEventListener("dragend", () => {
+                div.classList.remove("dragging");
+                document.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
+                div.draggable = false;
+            });
             // Drag and drop handlers
             div.addEventListener("dragstart", (e) => {
+                if (!div.draggable) {
+                    e.preventDefault();
+                    return;
+                }
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", i);
                 div.classList.add("dragging");
@@ -652,12 +692,6 @@
                     routeStops();
                 }
             });
-            div.addEventListener("dragend", () => {
-                div.classList.remove("dragging");
-                document
-                    .querySelectorAll(".drag-over")
-                    .forEach((el) => el.classList.remove("drag-over"));
-            });
 
             function editStopHandler() {
                 const newStopName = prompt("تعديل اسم المحطة:", s.name);
@@ -674,7 +708,6 @@
             if (addressElem) addressElem.onclick = editStopHandler;
 
             stopsList.appendChild(div);
-            // Do not add marker to map
         });
       }
 
@@ -685,8 +718,9 @@
         "touchstart",
         function (e) {
           if (e.touches.length > 1) return;
-          const target = e.target.closest(".list-item");
-          if (!target) return;
+          const hamburger = e.target.closest('.stop-hamburger');
+          const target = e.target.closest('.list-item');
+          if (!target || !hamburger) return;
           dragTimeout = setTimeout(() => {
             touchDragIndex = +target.dataset.index;
             target.classList.add("dragging");
@@ -731,7 +765,7 @@
           const overItem = overElem && overElem.closest(".list-item");
           stopsList
             .querySelectorAll(".drag-over")
-            .forEach((el) => el.classList.remove(".drag-over"));
+            .forEach((el) => el.classList.remove("drag-over"));
           const from = touchDragIndex;
           let to = from;
           if (overItem) to = +overItem.dataset.index;

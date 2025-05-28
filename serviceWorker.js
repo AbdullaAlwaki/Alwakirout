@@ -88,5 +88,13 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.action === 'force-update') {
     self.skipWaiting();
     self.clients.claim();
+    // Clear the cache to force new assets to be fetched
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          return caches.delete(cacheName);
+        })
+      );
+    });
   }
 });

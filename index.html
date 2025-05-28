@@ -102,26 +102,52 @@
       </div>
     </div>
 
-    <script>
-      // Register service worker with update notification and offline fallback
+    <script>      // Register service worker with update notification and offline fallback
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('serviceWorker.js').then(function(reg) {
-            reg.onupdatefound = function() {
-              const installingWorker = reg.installing;
-              installingWorker.onstatechange = function() {
-                if (installingWorker.state === 'installed') {
-                  if (navigator.serviceWorker.controller) {
-                    showToast('تم تحديث التطبيق! أعد التحميل للحصول على آخر الميزات.');
-                  } else {
-                    showToast('التطبيق جاهز للعمل بدون إنترنت!');
-                  }
-                }
-              };
+        window.addEventListener('load', async function() {
+          try {
+            const registration = await navigator.serviceWorker.register('serviceWorker.js');
+            
+            // Force update check every time the app loads
+            const checkForUpdate = async () => {
+              try {
+                await registration.update();
+              } catch (err) {
+                console.error('Error checking for PWA update:', err);
+              }
             };
-          }).catch(function(e) {
+            
+            // Check for updates on load and periodically
+            checkForUpdate();
+            setInterval(checkForUpdate, 60 * 60 * 1000); // Check every hour
+            
+            registration.addEventListener('updatefound', () => {
+              const worker = registration.installing;
+              worker.addEventListener('statechange', () => {
+                if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New content is available
+                  const updateBtn = document.createElement('button');
+                  updateBtn.textContent = '🔄 تحديث التطبيق';
+                  updateBtn.style = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:10px 20px;border-radius:8px;border:none;font-weight:bold;cursor:pointer;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+                  
+                  updateBtn.onclick = () => {
+                    // Send message to service worker to skip waiting
+                    worker.postMessage({ action: 'force-update' });
+                    // Reload the page to activate the new service worker
+                    window.location.reload();
+                  };
+                  
+                  document.body.appendChild(updateBtn);
+                  showToast('يتوفر تحديث جديد للتطبيق!');
+                } else if (worker.state === 'activated' && !navigator.serviceWorker.controller) {
+                  showToast('التطبيق جاهز للعمل بدون إنترنت!');
+                }
+              });
+            });
+          } catch (error) {
+            console.error('Error registering service worker:', error);
             showToast('فشل تسجيل خدمة PWA');
-          });
+          }
         });
       }
       // PWA install prompt improvements
